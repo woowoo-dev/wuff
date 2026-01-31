@@ -164,7 +164,9 @@ WooWooProject *WooWooAnalyzer::getProjectByDocument(WooWooDocument * document) {
 void WooWooAnalyzer::handleDocumentChange(const TextDocumentIdentifier &tdi, std::string &source) {
     auto docPath = utils::uriToPathString(tdi.uri);
     auto document = getDocument(docPath);
-    document->updateSource(source);
+    if (document) {
+        document->updateSource(source);
+    }
 }
 
 /**
@@ -190,19 +192,23 @@ WorkspaceEdit WooWooAnalyzer::renameFiles(const std::vector<std::pair<std::strin
         if (utils::endsWith(oldPath, ".woo") && utils::endsWith(newPath, ".woo")) {
             // Handle renaming of WooWoo files within the same or to a different project
             auto document = getDocument(oldPath);
+            if (!document) continue;
             auto oldProject = getProjectByDocument(document);
+            if (!oldProject) continue;
             auto documentShared = oldProject->getDocumentShared(document);
-            
+
             std::optional<fs::path> newProjectFolder = findProjectFolder(newUri);
             auto newProject = getProject(newProjectFolder);
-            if (newProject){
+            if (!newProject) {
+                // Fall back to null project
+                newProject = getProject(std::nullopt);
+            }
+            if (newProject) {
                 document->documentPath = newPath;
                 oldProject->deleteDocument(document);
                 newProject->addDocument(documentShared);
-            } else {
-                // TODO handle rare case
             }
-            
+
             renamedDocuments.emplace_back(oldPath, newPath);
 
         } else if (utils::endsWith(oldPath, ".woo")) {
@@ -244,6 +250,7 @@ void WooWooAnalyzer::deleteDocument(const std::string &uri) {
 }
 
 void WooWooAnalyzer::deleteDocument(DialectedWooWooDocument * document) {
+    if (!document) return;
     for (auto project: projects) {
         project->deleteDocument(document);
     }

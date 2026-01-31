@@ -78,6 +78,7 @@ std::shared_ptr<DialectedWooWooDocument> WooWooProject::getDocumentShared(WooWoo
 }
 
 void WooWooProject::deleteDocument(const DialectedWooWooDocument * document) {
+    if (!document) return;
     auto it = documents.find(document->documentPath.generic_string());
     if (it != documents.end()) {
         documents.erase(it);
