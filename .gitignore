@@ -188,3 +188,9 @@ main.cpp
 wuff/test.py
 **/.DS_Store
 **/*.so
+
+# macOS resource forks
+._*
+
+# Claude Code
+.claude/
