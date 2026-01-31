@@ -2,6 +2,9 @@ name: Wheels
 
 on:
   push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
   release:
     types:
       - published
@@ -43,7 +46,7 @@ jobs:
         with:
           submodules: true
 
-      - uses: pypa/cibuildwheel@v2.19
+      - uses: pypa/cibuildwheel@v2.21
 
       - name: Verify clean directory
         run: git diff --exit-code
@@ -61,6 +64,9 @@ jobs:
     needs: [ build_wheels, build_sdist ]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
+    environment: pypi
+    permissions:
+      id-token: write
 
     steps:
       - uses: actions/setup-python@v5
@@ -74,5 +80,3 @@ jobs:
           merge-multiple: true
 
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.pypi_password }}

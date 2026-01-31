@@ -5,7 +5,7 @@
 #include "Woofile.h"
 
 Woofile::Woofile(const fs::path &projectFolderPath) {
-    YAML::Node yamlData = YAML::LoadFile(projectFolderPath / "Woofile");
+    YAML::Node yamlData = YAML::LoadFile((projectFolderPath / "Woofile").string());
     deserialize(yamlData);
     // TODO: if bibtex is set, load it and process it
     // https://gitlab.fit.cvut.cz/BI-MA1/bi-ma1/-/blob/master/src/textbook/references.bib
