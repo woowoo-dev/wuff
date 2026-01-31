@@ -293,11 +293,13 @@ void WooWooAnalyzer::openDocument(const TextDocumentIdentifier &tdi) {
     if (!getDocument(docPath)) {
         // unknown document opened
         std::optional<fs::path> projectFolder = findProjectFolder(tdi.uri);
-        auto project = getProject(projectFolder); 
-        if(project){
+        auto project = getProject(projectFolder);
+        if (!project) {
+            // Fall back to null project for standalone files
+            project = getProject(std::nullopt);
+        }
+        if (project) {
             project->loadDocument(docPath);
-        } else {
-            // TODO handle special cases
         }
     }
 }
