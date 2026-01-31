@@ -132,7 +132,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
     name="wuff",
-    version="1.2.0",
+    version="1.2.1",
     author="Michal Janecek",
     author_email="michal.janecek@gmail.com",
     description="Analysis engine for WooWoo workspaces.",
