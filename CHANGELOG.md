@@ -23,14 +23,21 @@ history only.
 - `Environment::math` and the dialect queries `Dialect::isMathEnvironment` /
   `Dialect::isImplicitOuterEnvironmentMath`, backed by a new per-environment `math: true`
   key in the dialect YAML.
+- Richer hover hints: `DialectManager::getDescription` returns Markdown now. Below the
+  description of the hovered document part, wobject or environment it lists the meta-block
+  fields that the dialect accepts for it, marks the required ones and names the fragile
+  form (`!tikz:`) of environments that need it. `Field` gained an optional `description`,
+  which is appended to the field name in that list, so the dialect can document keys such
+  as `aspect` (default `16x9`) without repeating itself in the entry description.
 
 ### Changed
 
 - `Parser::extractStructureName` is public; the highlighter uses it to resolve the name of
   the enclosing outer environment.
-- The test dialect copy (`tests/files/fit_math.yaml`, version 1.1.0) marks `equation`,
-  `align` and `gather` with `math: true`, mirroring the FIT math dialect shipped with the
-  language server.
+- The test dialect copy (`tests/files/fit_math.yaml`) mirrors the FIT math dialect shipped
+  with the language server (1.2.0). New fixtures `nested.woo`, `mathenv.woo` and
+  `upstream.woo` cover anonymous math blocks, blocks nested in math environments, and the
+  structures added in the dialect sync.
 
 ### Fixed
 

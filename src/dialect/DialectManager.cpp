@@ -90,6 +90,41 @@ std::string DialectManager::getDescription(const std::string &type, const std::s
     return description; // Return the description if found, or an empty string if not
 }
 
+namespace {
+
+// The hover is a Markdown document (the language server sends it as MarkupContent of kind
+// Markdown), so the meta-block fields can be listed below the description. The list is built
+// from the dialect, hence it cannot get out of sync with what the construct accepts.
+std::string formatMetaBlockFields(const MetaBlock &metaBlock, const std::string &fragileName) {
+    std::string result;
+
+    if (!fragileName.empty()) {
+        result += "\n\nWrite it in the fragile form: `!" + fragileName + "`.";
+    }
+
+    if (metaBlock.requiredFields.empty() && metaBlock.optionalFields.empty()) {
+        return result;
+    }
+
+    result += "\n\n**Meta block fields**";
+    for (const Field &field: metaBlock.requiredFields) {
+        result += "\n- `" + field.name + "` **(required)**";
+        if (!field.description.empty()) {
+            result += " — " + field.description;
+        }
+    }
+    for (const Field &field: metaBlock.optionalFields) {
+        result += "\n- `" + field.name + "`";
+        if (!field.description.empty()) {
+            result += " — " + field.description;
+        }
+    }
+
+    return result;
+}
+
+} // namespace
+
 template<typename T>
 std::string DialectManager::scanForDescriptionByName(const std::vector<std::shared_ptr<T> > &describables,
                                                      const std::string &name) {
@@ -97,7 +132,13 @@ std::string DialectManager::scanForDescriptionByName(const std::vector<std::shar
 
     for (const auto &describable: describables) {
         if (describable->getName() == name) {
-            return describable->getDescription();
+            std::string fragileName;
+            if constexpr (std::is_same_v<T, Environment>) {
+                if (describable->fragile) {
+                    fragileName = describable->name;
+                }
+            }
+            return describable->getDescription() + formatMetaBlockFields(describable->metaBlock, fragileName);
         }
     }
     return ""; // Return an empty string if no matching describable is found

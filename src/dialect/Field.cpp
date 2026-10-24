@@ -16,6 +16,10 @@ void Field::deserialize(const YAML::Node& node) {
         throw std::runtime_error("Field node does not have a 'name' attribute.");
     }
 
+    if (node["description"]) {
+        description = node["description"].as<std::string>();
+    }
+
     // Deserialize 'references' if they exist
     if (node["references"]) {
         references.clear();  // Clear existing references before deserializing
