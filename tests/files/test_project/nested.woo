@@ -1,0 +1,34 @@
+.Chapter Nested math
+  label: cn
+
+
+.Definition:
+  label: def-nested
+  title: A nested formula
+
+  Definition prose.
+
+    x^2 + y^2 = z^2
+
+  More prose.
+
+  .itemize:
+
+    .item:
+
+      Item prose, not a formula.
+
+        a = b
+
+      Item prose after the formula.
+
+    .item:
+
+      Another item, starting with a formula.
+
+        c = d
+
+  Back to prose.
+
+
+End of the chapter.

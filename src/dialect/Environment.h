@@ -18,6 +18,7 @@ public:
     std::string name;
     std::string description;
     bool fragile;
+    bool math = false;
     std::vector<Reference> references;
     MetaBlock metaBlock;
     Environment() = default;

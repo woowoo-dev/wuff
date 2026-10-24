@@ -1,6 +1,6 @@
 name: "FIT Math"
-version_code: 1
-version_name: "1.0.0"
+version_code: 2
+version_name: "1.1.0"
 description: |-
   This dialect is used for writing almost all of the math courses on FIT CTU.
   Blocks are rendered as paragraphs.
@@ -150,16 +150,19 @@ environments:
 
   - name: equation
     description: "A simple math equation"
+    math: true
     meta_block: &optional_label
       optional_fields:
         - name: label
 
   - name: align
     description: "AMSMath align environment. At the moment only the last equation is numbered."
+    math: true
     meta_block: *optional_label
 
   - name: gather
     description: "AMSMath gather environment."
+    math: true
     meta_block: *optional_label
 
   - name: caption

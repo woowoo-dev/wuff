@@ -29,3 +29,7 @@ To install `wuff` locally for development or testing purposes, follow these step
    pip install .
    ```
    This command installs `wuff` from the current directory using the setup configurations defined in `setup.py`.
+
+## Changelog
+
+See [CHANGELOG.md](https://github.com/Magmi183/wuff/blob/master/CHANGELOG.md).

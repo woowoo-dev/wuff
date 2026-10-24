@@ -32,6 +32,11 @@ public:
     std::shared_ptr<Shorthand> shorthand_at;
     void deserialize(const YAML::Node& node);
 
+    // Whether the environment with the given name is marked as math (see Environment::math).
+    [[nodiscard]] bool isMathEnvironment(const std::string &environmentName) const;
+    // Whether the dialect's implicit (indented) outer environment is a math one.
+    [[nodiscard]] bool isImplicitOuterEnvironmentMath() const;
+    
     
 };
 

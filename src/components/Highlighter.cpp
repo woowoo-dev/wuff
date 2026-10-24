@@ -44,6 +44,9 @@ std::vector<int> Highlighter::semanticTokens(const TextDocumentIdentifier &tdi) 
     ts_query_cursor_delete(wooCursor);
 
 
+    // - - Adding nodes from implicit (indented) math blocks
+    addImplicitMathNodes(document, nodes);
+
     // - - Adding nodes from YAML highlights
     addMetaBlocksNodes(document, nodes);
 
@@ -147,6 +150,310 @@ void Highlighter::addCommentNodes(WooWooDocument *document, std::vector<NodeInfo
 
 }
 
+namespace {
+
+    bool isAsciiLetter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+
+    bool isLatexScriptChar(char c) {
+        return c == '^' || c == '_';
+    }
+
+    bool isLatexOperatorChar(char c) {
+        switch (c) {
+            case '=':
+            case '<':
+            case '>':
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+            case '&':
+            case '|':
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // An implicit outer environment also occurs inside the body of an explicit one, when that body
+    // is indented deeper than the body itself. Only the math environments (`.equation:`, `.align:`,
+    // `.gather:` in the FIT math dialect) are covered by the client: the TextMate `mathBlock` rule
+    // colours every line of their body. Reporting those again would duplicate the highlighting,
+    // while an indented block inside `.item:`, `.itemize:` or a wobject is a formula of its own.
+    bool isInMathEnvironment(WooWooDocument *document, TSNode node) {
+        DialectManager *dialectManager = DialectManager::getInstance();
+        TSNode parent = ts_node_parent(node);
+        while (!ts_node_is_null(parent)) {
+            std::string parentType = ts_node_type(parent);
+            if (parentType == "classic_outer_environment") {
+                std::string environment = Parser::extractStructureName(parent, document->source);
+                if (dialectManager->activeDialect->isMathEnvironment(environment)) {
+                    return true;
+                }
+            }
+            // inside a meta block there is no WooWoo source to highlight
+            if (parentType == "meta_block" || parentType == "document_part" || parentType == "source_file") {
+                return false;
+            }
+            parent = ts_node_parent(parent);
+        }
+        return false;
+    }
+
+    bool isLineInMetaBlock(WooWooDocument *document, uint32_t line) {
+        for (const MetaContext *metaContext: document->metaBlocks) {
+            TSNode metaRoot = ts_tree_root_node(metaContext->tree);
+            uint32_t startByte = metaContext->byteOffset;
+            uint32_t endByte = startByte + ts_node_end_byte(metaRoot);
+            uint32_t startLine = metaContext->lineOffset;
+            uint32_t endLine = startLine + ts_node_end_point(metaRoot).row;
+            if (line < startLine || line > endLine) {
+                continue;
+            }
+            // a meta block can start in the middle of a line (right after the header text),
+            // so only lines that really contain a part of it count
+            uint32_t position = startByte;
+            for (uint32_t skipped = line - startLine; skipped > 0; --skipped) {
+                while (position < endByte && document->source[position] != '\n') {
+                    ++position;
+                }
+                if (position >= endByte) {
+                    break;
+                }
+                ++position;
+            }
+            while (position < endByte &&
+                   (document->source[position] == ' ' || document->source[position] == '\t' ||
+                    document->source[position] == '\r')) {
+                ++position;
+            }
+            if (position < endByte && document->source[position] != '\n') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+}
+
+void Highlighter::addImplicitMathNodes(WooWooDocument *document, std::vector<NodeInfo> &nodes) {
+
+    DialectManager *dialectManager = DialectManager::getInstance();
+    if (dialectManager->activeDialect == nullptr || !dialectManager->activeDialect->isImplicitOuterEnvironmentMath()) {
+        return;
+    }
+
+    TSQueryCursor *mathCursor = ts_query_cursor_new();
+    ts_query_cursor_exec(mathCursor, queries[implicitMathQuery], ts_tree_root_node(document->tree));
+
+    TSQueryMatch match;
+    while (ts_query_cursor_next_match(mathCursor, &match)) {
+        for (uint32_t i = 0; i < match.capture_count; ++i) {
+            TSNode capturedNode = match.captures[i].node;
+            // an indented block inside a math environment is already coloured by the client
+            if (isInMathEnvironment(document, capturedNode)) {
+                continue;
+            }
+            addMathLineNodes(document, capturedNode, nodes);
+        }
+    }
+
+    ts_query_cursor_delete(mathCursor);
+}
+
+void Highlighter::addMathLineNodes(WooWooDocument *document, const TSNode &node, std::vector<NodeInfo> &nodes) {
+
+    // Semantic tokens cannot span several lines, so a multi-line block is processed line by
+    // line: indentation and an optional meta block are skipped, the rest is LaTeX-tokenized.
+    const std::string &source = document->source;
+    const uint32_t nodeStart = ts_node_start_byte(node);
+    const uint32_t nodeEnd = ts_node_end_byte(node);
+    uint32_t line = ts_node_start_point(node).row;
+
+    // the node starts at the beginning of a line, find the byte offset of that line start
+    uint32_t lineStart = nodeStart;
+    while (lineStart > 0 && source[lineStart - 1] != '\n') {
+        --lineStart;
+    }
+
+    while (lineStart < nodeEnd && lineStart < source.size()) {
+
+        uint32_t lineEnd = lineStart;
+        while (lineEnd < source.size() && source[lineEnd] != '\n') {
+            ++lineEnd;
+        }
+
+        uint32_t contentStart = std::max(lineStart, nodeStart);
+        while (contentStart < lineEnd && (source[contentStart] == ' ' || source[contentStart] == '\t')) {
+            ++contentStart;
+        }
+
+        uint32_t contentEnd = std::min(lineEnd, nodeEnd);
+        while (contentEnd > contentStart &&
+               (source[contentEnd - 1] == ' ' || source[contentEnd - 1] == '\t' || source[contentEnd - 1] == '\r')) {
+            --contentEnd;
+        }
+
+        if (contentStart < contentEnd && !isLineInMetaBlock(document, line)) {
+            addLatexLineNodes(document, line, lineStart, contentStart, contentEnd, nodes);
+        }
+
+        lineStart = lineEnd < source.size() ? lineEnd + 1 : source.size();
+        ++line;
+    }
+}
+
+void Highlighter::addLineToken(std::vector<NodeInfo> &nodes, uint32_t line, uint32_t lineStart,
+                               uint32_t begin, uint32_t end, const std::string &tokenType) {
+    if (begin >= end) {
+        return;
+    }
+    TSPoint startPoint = {line, begin - lineStart};
+    TSPoint endPoint = {line, end - lineStart};
+    nodes.emplace_back(startPoint, endPoint, tokenType);
+}
+
+void Highlighter::addLatexLineNodes(WooWooDocument *document, uint32_t line, uint32_t lineStart,
+                                    uint32_t contentStart, uint32_t contentEnd, std::vector<NodeInfo> &nodes) {
+
+    // The TextMate grammar highlights the body of `$...$` and of `.equation:` with the `#latex`
+    // rules, but it cannot recognise an anonymous (indented) block, so the same rules are
+    // mirrored here with standard semantic token types (no client configuration needed):
+    //   plain math -> number (the grammar uses `constant.numeric` for it)
+    //   \command   -> function (grammar: support.function)
+    //   \text{..}  -> function for the command, string for the content
+    //   \begin{x}  -> function for the command, type for the environment name
+    //   ^ _ = < > + - * / & | \\ -> operator (grammar: keyword.operator)
+    //   % ...      -> comment (grammar: comment.line)
+    const std::string &source = document->source;
+    uint32_t baseStart = contentStart; // start of the pending plain math run
+    uint32_t position = contentStart;
+
+    // tokens of this line only, so that neighbouring ones of the same type are merged afterwards
+    std::vector<NodeInfo> lineNodes;
+    auto add = [&](uint32_t begin, uint32_t end, const std::string &tokenType) {
+        addLineToken(lineNodes, line, lineStart, begin, end, tokenType);
+    };
+    auto flushBase = [&](uint32_t upTo) {
+        add(baseStart, upTo, "number");
+    };
+
+    while (position < contentEnd) {
+        char current = source[position];
+
+        if (current == '%') {
+            flushBase(position);
+            add(position, contentEnd, "comment");
+            position = contentEnd;
+            baseStart = contentEnd;
+            break;
+        }
+
+        if (current == '\\' && position + 1 < contentEnd) {
+            char next = source[position + 1];
+
+            if (next == '\\') { // line break
+                flushBase(position);
+                add(position, position + 2, "operator");
+                position += 2;
+                baseStart = position;
+                continue;
+            }
+
+            uint32_t commandEnd = position + 1;
+            while (commandEnd < contentEnd && isAsciiLetter(source[commandEnd])) {
+                ++commandEnd;
+            }
+            std::string command = source.substr(position + 1, commandEnd - position - 1);
+
+            if (command == "text") { // \text{...}, \text*{...}
+                uint32_t brace = commandEnd;
+                if (brace < contentEnd && source[brace] == '*') {
+                    ++brace;
+                }
+                while (brace < contentEnd && (source[brace] == ' ' || source[brace] == '\t')) {
+                    ++brace;
+                }
+                if (brace < contentEnd && source[brace] == '{') {
+                    flushBase(position);
+                    add(position, brace + 1, "function");
+                    uint32_t textStart = brace + 1;
+                    uint32_t textEnd = textStart;
+                    while (textEnd < contentEnd && source[textEnd] != '}') {
+                        ++textEnd;
+                    }
+                    add(textStart, textEnd, "string");
+                    // the closing brace belongs to the command, as in the grammar's endCaptures
+                    if (textEnd < contentEnd) {
+                        add(textEnd, textEnd + 1, "function");
+                    }
+                    position = textEnd < contentEnd ? textEnd + 1 : contentEnd;
+                    baseStart = position;
+                    continue;
+                }
+            }
+
+            if (command == "begin" || command == "end") { // \begin{env}, \end{env}
+                uint32_t brace = commandEnd;
+                while (brace < contentEnd && (source[brace] == ' ' || source[brace] == '\t')) {
+                    ++brace;
+                }
+                if (brace < contentEnd && source[brace] == '{') {
+                    uint32_t nameEnd = brace + 1;
+                    while (nameEnd < contentEnd && source[nameEnd] != '}') {
+                        ++nameEnd;
+                    }
+                    flushBase(position);
+                    add(position, brace, "function");
+                    // only the name inside the braces is a type in the grammar (capture 2 of
+                    // `(\\\\(?:begin|end))\\s*\\{([^{}]*)\\}`), the braces stay plain math
+                    add(brace, brace + 1, "number");
+                    add(brace + 1, nameEnd, "type");
+                    if (nameEnd < contentEnd) {
+                        add(nameEnd, nameEnd + 1, "number");
+                    }
+                    position = nameEnd < contentEnd ? nameEnd + 1 : contentEnd;
+                    baseStart = position;
+                    continue;
+                }
+            }
+
+            // any other command: \frac, \sin, \% ... (a single non-letter is a command too)
+            uint32_t commandStop = commandEnd > position + 1 ? commandEnd : position + 2;
+            flushBase(position);
+            add(position, commandStop, "function");
+            position = commandStop;
+            baseStart = position;
+            continue;
+        }
+
+        if (isLatexScriptChar(current) || isLatexOperatorChar(current)) {
+            flushBase(position);
+            add(position, position + 1, "operator");
+            ++position;
+            baseStart = position;
+            continue;
+        }
+
+        ++position;
+    }
+
+    flushBase(contentEnd);
+
+    // merge contiguous tokens of the same type (e.g. "2" + " " + "1" inside a plain run)
+    for (const NodeInfo &lineNode: lineNodes) {
+        if (!nodes.empty() && nodes.back().name == lineNode.name &&
+            nodes.back().endPoint.row == lineNode.startPoint.row &&
+            nodes.back().endPoint.column == lineNode.startPoint.column) {
+            nodes.back().endPoint = lineNode.endPoint;
+        } else {
+            nodes.push_back(lineNode);
+        }
+    }
+}
+
 
 void Highlighter::setTokenTypes(std::vector<std::string> tokenTypesFromClient) {
     this->tokenTypes = std::move(tokenTypesFromClient);
@@ -173,6 +480,7 @@ const std::unordered_map<std::string, std::pair<TSLanguage*, std::string>> &High
 
 const std::string Highlighter::woowooHighlightQuery = "woowooHighlightQuery";
 const std::string Highlighter::yamlHighlightQuery = "yamlHighlightQuery";
+const std::string Highlighter::implicitMathQuery = "implicitMathQuery";
 const std::unordered_map<std::string, std::pair<TSLanguage*, std::string>> Highlighter::queryStringsByName = {
         {woowooHighlightQuery,
                 std::make_pair(tree_sitter_woowoo(), R"(
@@ -222,6 +530,12 @@ const std::unordered_map<std::string, std::pair<TSLanguage*, std::string>> Highl
 
 ;(math_environment "$" @function)
 ;(math_environment_body ) @number
+)")},
+        {implicitMathQuery, std::make_pair(tree_sitter_woowoo(), R"(
+; Implicit (indented) outer environment, highlighted as math only if the dialect
+; marks the implicit outer environment as math, see Dialect::isImplicitOuterEnvironmentMath
+
+(implicit_outer_environment) @math
 )")},
         {yamlHighlightQuery,std::make_pair(tree_sitter_yaml(), R"(
 ; Queries are from https://github.com/nvim-treesitter/nvim-treesitter/blob/master/queries/yaml/highlights.scm , but the order of queries was changed.

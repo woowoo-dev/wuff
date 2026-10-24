@@ -49,6 +49,7 @@ private:
 
     static const std::string woowooHighlightQuery;
     static const std::string yamlHighlightQuery;
+    static const std::string implicitMathQuery;
     static const std::unordered_map<std::string, std::pair<TSLanguage*,std::string>> queryStringsByName;
     
     
@@ -57,6 +58,12 @@ private:
     
     void addMetaBlocksNodes(WooWooDocument * document,  std::vector<NodeInfo> & nodes);
     void addCommentNodes(WooWooDocument * document,  std::vector<NodeInfo> & nodes);
+    void addImplicitMathNodes(WooWooDocument * document, std::vector<NodeInfo> & nodes);
+    void addMathLineNodes(WooWooDocument * document, const TSNode & node, std::vector<NodeInfo> & nodes);
+    void addLatexLineNodes(WooWooDocument * document, uint32_t line, uint32_t lineStart,
+                           uint32_t contentStart, uint32_t contentEnd, std::vector<NodeInfo> & nodes);
+    static void addLineToken(std::vector<NodeInfo> & nodes, uint32_t line, uint32_t lineStart,
+                             uint32_t begin, uint32_t end, const std::string & tokenType);
 };
 
 
