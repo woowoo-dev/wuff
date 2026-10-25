@@ -59,13 +59,14 @@ history only.
   the last x86_64 runner. The matrix produced arm64 wheels only before, so Intel Macs
   had to build from source. Both jobs moved off `macos-14`, which GitHub retires on
   2 November 2026.
-- The macOS deployment target of the extension module is no longer hard-coded to 10.15.
-  `setup.py` forwards `MACOSX_DEPLOYMENT_TARGET` to CMake as `CMAKE_OSX_DEPLOYMENT_TARGET`,
-  so the binaries match the version the wheel is tagged with, which is what delocate checks
-  when it repairs a wheel. The Intel build no longer fails with `Library dependencies do
-  not satisfy target MacOS version`, and Intel wheels keep cibuildwheel's per-version
-  defaults (10.9 for 3.10 and 3.11, 10.13 for 3.12 and 3.13, 10.15 from 3.14) instead of
-  requiring 10.15 for every version.
+- The macOS deployment target is no longer hard-coded in `src/CMakeLists.txt`. `setup.py`
+  passes `MACOSX_DEPLOYMENT_TARGET` to CMake as `CMAKE_OSX_DEPLOYMENT_TARGET`, defaulting to
+  10.15 — the first macOS whose libc++ provides `std::filesystem` — and
+  `[tool.cibuildwheel.macos]` sets the same value for wheel builds, because cibuildwheel's
+  own defaults (10.9 for 3.10 and 3.11, 10.13 for 3.12 and 3.13) are below what the module
+  can compile against. delocate also rejects a wheel whose binaries require a newer macOS
+  than the tag promises. Intel wheels stay `macosx_10_15_x86_64`, arm64 keeps its 11.0
+  floor.
 - The minimum Python is 3.10 instead of 3.8: 3.8 and 3.9 are past end of life, so
   `python_requires` is `>=3.10`, the `mypy` and `ruff` targets say 3.10 and the build skips
   the `cp39` wheels that pip would refuse to install anyway. Installations on 3.8 and 3.9
