@@ -103,6 +103,12 @@ class CMakeBuild(build_ext):
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+            # Respect the deployment target too: cibuildwheel sets it per Python version
+            # and delocate rejects a wheel whose binaries require a newer macOS than the
+            # tag says, so the compiler has to be told exactly the same version.
+            deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET")
+            if deployment_target:
+                cmake_args += [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}"]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.

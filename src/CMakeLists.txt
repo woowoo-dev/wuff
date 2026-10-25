@@ -91,10 +91,11 @@ pybind11_add_module(${PROJECT_NAME} NO_EXTRAS
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${TREE_SITTER_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC yaml-cpp::yaml-cpp)
 
-if (APPLE)
-    target_compile_options(${PROJECT_NAME} PRIVATE "-mmacosx-version-min=10.15")
-    target_link_options(${PROJECT_NAME} PRIVATE "-mmacosx-version-min=10.15")
-endif()
+# The macOS deployment target is not passed with -mmacosx-version-min: it has to match the
+# value the wheel is tagged with, or delocate rejects the wheel as requiring a newer macOS
+# than its tag promises. CMake applies CMAKE_OSX_DEPLOYMENT_TARGET to the compiler and the
+# linker itself, and setup.py forwards MACOSX_DEPLOYMENT_TARGET as that option, so wheel
+# builds, plain pip installs and manual cmake runs all agree.
 
 # - - - WooWooTest executable
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
