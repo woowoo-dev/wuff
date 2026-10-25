@@ -141,7 +141,7 @@ setup(
     ext_modules=[CMakeExtension("wuff")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
-    extras_require={"test": ["pytest>=6.0"]},
+    extras_require={"test": ["pytest>=8.0"]},
     python_requires=">=3.8",
 )
 

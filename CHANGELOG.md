@@ -38,9 +38,18 @@ history only.
   with the language server (1.2.0). New fixtures `nested.woo`, `mathenv.woo` and
   `upstream.woo` cover anonymous math blocks, blocks nested in math environments, and the
   structures added in the dialect sync.
+- The build asks for CMake 3.20 (it was 3.5, which is below the compatibility floor of
+  CMake 4) and populates tree-sitter with `FetchContent_MakeAvailable()` instead of the
+  deprecated `FetchContent_Populate()`. The build requirements are `setuptools>=68` and
+  `cmake>=3.20`; the test extra asks for pytest 8 and the obsolete pytest-internals
+  warning filter is gone.
 
 ### Fixed
 
+- yaml-cpp is pinned to `yaml-cpp-0.9.0` instead of being cloned from `master`, so a build
+  is reproducible and cannot break overnight. 0.9.0 is also the first release that
+  configures with CMake 4 — 0.8.0 declares `cmake_minimum_required(VERSION 3.4)`, which
+  CMake 4 rejects outright.
 - The highlighter no longer needs to guess which blocks are formulas from the shape of
   the surrounding text: whether an indented block is math is now decided by the dialect
   alone.

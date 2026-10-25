@@ -1,10 +1,9 @@
 # https://github.com/pybind/cmake_example/blob/master/pyproject.toml
 [build-system]
 requires = [
-    "setuptools>=42",
-    "wheel",
+    "setuptools>=68",
     "ninja",
-    "cmake>=3.12",
+    "cmake>=3.20",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -22,12 +21,11 @@ ignore_missing_imports = true
 
 
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "8.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
     "error",
-    "ignore:(ast.Str|Attribute s|ast.NameConstant|ast.Num) is deprecated:DeprecationWarning:_pytest",
 ]
 testpaths = ["tests"]
 
