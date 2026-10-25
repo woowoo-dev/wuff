@@ -32,7 +32,10 @@ testpaths = ["tests"]
 [tool.cibuildwheel]
 # python_requires is >=3.10 and 3.9 is EOL, so do not spend CI time on cp39 wheels
 # that pip would refuse to install anyway.
-skip = ["cp39-*"]
+# Free-threaded builds (cp314t and later) are skipped as well: pybind11 2.11 cannot declare
+# the module safe without the GIL, so importing it re-enables the GIL with a
+# RuntimeWarning, which `filterwarnings = ["error"]` turns into a test failure.
+skip = ["cp39-*", "cp3??t-*"]
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
 # Setuptools bug causes collision between pypy and cpython artifacts

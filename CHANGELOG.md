@@ -49,12 +49,23 @@ history only.
 - Wheels are built with cibuildwheel 4.3.4 (it was 2.21), so the released wheel set reaches
   CPython 3.14 instead of stopping at 3.13; the same major bump moved the default Linux
   image from manylinux2014 to manylinux_2_28 (glibc 2.28).
+- Free-threaded CPython builds (`cp314t` and later) are skipped explicitly. cibuildwheel 4
+  builds those variants by default now that free-threading is no longer experimental in
+  3.14, but pybind11 2.11 cannot declare that the module is safe without the GIL: importing
+  it re-enables the GIL with a `RuntimeWarning`, which the test configuration turns into an
+  error. GIL-enabled 3.14 wheels are still published, and a free-threaded interpreter
+  installs the sdist instead.
+- macOS wheels are built for both architectures: `macos-15` (arm64) and `macos-15-intel`,
+  the last x86_64 runner. The matrix produced arm64 wheels only before, so Intel Macs
+  had to build from source. Both jobs moved off `macos-14`, which GitHub retires on
+  2 November 2026.
 - The minimum Python is 3.10 instead of 3.8: 3.8 and 3.9 are past end of life, so
   `python_requires` is `>=3.10`, the `mypy` and `ruff` targets say 3.10 and the build skips
   the `cp39` wheels that pip would refuse to install anyway. Installations on 3.8 and 3.9
   are unaffected: pip keeps resolving them to 1.2.1, the last release that supports them.
-- The obsolete `test-skip` entry for `*universal2:arm64` is gone; the macOS matrix builds
-  arm64 wheels only, so nothing was being skipped.
+- The obsolete `test-skip` entry for `*universal2:arm64` is gone. It only ever applied to
+  `universal2` wheels, which this project does not build: each macOS runner produces a
+  single-architecture wheel, so nothing was being skipped.
 
 ### Fixed
 
