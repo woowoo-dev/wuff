@@ -40,5 +40,20 @@ def file3_uri():
 
 
 @pytest.fixture(scope="session")
+def nested_uri():
+    return generate_woo_file_uri('nested.woo')
+
+
+@pytest.fixture(scope="session")
+def mathenv_uri():
+    return generate_woo_file_uri('mathenv.woo')
+
+
+@pytest.fixture(scope="session")
+def upstream_uri():
+    return generate_woo_file_uri('upstream.woo')
+
+
+@pytest.fixture(scope="session")
 def empty_uri():
     return generate_woo_file_uri('empty.woo')

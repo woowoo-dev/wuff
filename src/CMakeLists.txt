@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.20)
 project(wuff)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -7,32 +7,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 # - - - YAML-CPP
+# Pinned: the build has to be reproducible, and 0.9.0 is the first release whose
+# cmake_minimum_required() is new enough for CMake 4 (0.8.0 declares 3.4 and fails there).
 FetchContent_Declare(
     yaml-cpp
     GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_TAG master
+    GIT_TAG yaml-cpp-0.9.0
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
 # - - - Tree-sitter
+# Tree-sitter does not use CMake, so MakeAvailable only populates the sources; they are
+# added to the module by hand below.
 FetchContent_Declare(
     tree_sitter
     GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
     GIT_TAG v0.20.9
 )
-FetchContent_GetProperties(tree_sitter)
-if (NOT tree_sitter_POPULATED)
-    message(STATUS "Fetching tree-sitter...")
-    FetchContent_Populate(tree_sitter)
+FetchContent_MakeAvailable(tree_sitter)
 
-    # Since Tree-sitter does not use CMake, we manually add its source and include directories
-    set(TREE_SITTER_SRC ${tree_sitter_SOURCE_DIR}/lib/src/lib.c)
-    set(TREE_SITTER_INCLUDE_DIRS
-        ${tree_sitter_SOURCE_DIR}/lib/include
-        ${tree_sitter_SOURCE_DIR}/lib/src
-        ${tree_sitter_SOURCE_DIR}/lib/src/unicode
-    )
-endif()
+set(TREE_SITTER_SRC ${tree_sitter_SOURCE_DIR}/lib/src/lib.c)
+set(TREE_SITTER_INCLUDE_DIRS
+    ${tree_sitter_SOURCE_DIR}/lib/include
+    ${tree_sitter_SOURCE_DIR}/lib/src
+    ${tree_sitter_SOURCE_DIR}/lib/src/unicode
+)
 
 # Tree-Sitter WooWoo
 set(WOOWOO_PARSER_SRC tree-sitter/woowoo/parser.c)
@@ -92,10 +91,11 @@ pybind11_add_module(${PROJECT_NAME} NO_EXTRAS
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${TREE_SITTER_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC yaml-cpp::yaml-cpp)
 
-if (APPLE)
-    target_compile_options(${PROJECT_NAME} PRIVATE "-mmacosx-version-min=10.15")
-    target_link_options(${PROJECT_NAME} PRIVATE "-mmacosx-version-min=10.15")
-endif()
+# The macOS deployment target is not passed with -mmacosx-version-min here: it has to match
+# the value the wheel is tagged with, or delocate rejects the wheel as requiring a newer
+# macOS than its tag promises. setup.py forwards MACOSX_DEPLOYMENT_TARGET as
+# CMAKE_OSX_DEPLOYMENT_TARGET, with 10.15 as the floor because std::filesystem only exists
+# in libc++ from macOS 10.15 on, so wheel builds, pip installs and manual cmake runs agree.
 
 # - - - WooWooTest executable
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")

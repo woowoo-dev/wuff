@@ -36,17 +36,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 is an intel runner, macos-14 is apple silicon
+        # macOS needs one runner per architecture, because cibuildwheel builds for the
+        # runner's native architecture unless `archs` is set: macos-15 is arm64, macos-15-intel
+        # is the last x86_64 runner. macos-14 is avoided because GitHub retires it on
+        # 2 November 2026 (actions/runner-images#13518).
         # from: https://github.com/pypa/cibuildwheel/blob/main/examples/github-deploy.yml
-        #os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ]
-        os: [ ubuntu-latest, windows-latest, macos-14 ]
+        os: [ ubuntu-latest, windows-latest, macos-15-intel, macos-15 ]
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
 
-      - uses: pypa/cibuildwheel@v2.21
+      # v4 builds CPython 3.14 wheels by default (v2.21 stopped at 3.13). It also switched
+      # the default Linux image from manylinux2014 to manylinux_2_28 (glibc 2.28).
+      - uses: pypa/cibuildwheel@v4.3.4
 
       - name: Verify clean directory
         run: git diff --exit-code

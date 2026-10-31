@@ -1,0 +1,83 @@
+.Chapter Upstream dialect entries
+  label: c-upstream
+
+
+.Concept:
+  label: c-concept
+  nonumber: true
+
+  Concept body with a formula.
+
+    a = 1
+
+
+.Video:
+  label: c-video
+  nonumber: true
+
+  .youtube:
+    playlist: PL123
+    aspect: 4x3
+
+    dQw4w9WgXcQ
+
+  .caption:
+
+    A video.
+
+
+.Figure:
+  label: c-figure
+
+  .geogebra:
+
+    123456
+
+  .caption:
+
+    A figure.
+
+
+!dot:
+  filename: c-dot
+
+  digraph { a -> b }
+
+
+.Algorithm:
+  label: c-algorithm
+
+  Algorithm body.
+
+  !pseudocode:
+    linenumber: true
+
+    \State $x \gets 1$
+
+
+.equation:
+  label: c-equation
+  skip: fit-slides
+
+  b = c
+
+
+.itemize:
+
+  .item:
+    bullet: '$\star$'
+
+    An item.
+
+    .youtube:
+
+      dQw4w9WgXcQ
+
+
+.Procedure:
+  label: c-procedure
+  nonumber: true
+
+  Procedure body with a formula.
+
+    c = 1

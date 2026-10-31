@@ -55,3 +55,16 @@ void Dialect::deserialize(const YAML::Node& node) {
         shorthand_at->type = "at";
     }
 }
+
+bool Dialect::isMathEnvironment(const std::string &environmentName) const {
+    for (const auto &environment: environments) {
+        if (environment->name == environmentName) {
+            return environment->math;
+        }
+    }
+    return false;
+}
+
+bool Dialect::isImplicitOuterEnvironmentMath() const {
+    return isMathEnvironment(implicit_outer_environment);
+}

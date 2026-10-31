@@ -17,6 +17,10 @@ void Environment::deserialize(const YAML::Node& node) {
     name = node["name"].as<std::string>();
     description = node["description"].as<std::string>();
     fragile = node["fragile"].as<bool>(false);
+    // Marks environments whose body is math (e.g. equation/align/gather). The highlighter uses it
+    // to decide whether the implicit (indented) outer environment is math, and to leave a block
+    // nested in a math environment body to the client's own math highlighting.
+    math = node["math"].as<bool>(false);
     
     // Deserialize 'references' if they exist
     if (node["references"]) {

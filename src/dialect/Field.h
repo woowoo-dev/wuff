@@ -15,6 +15,8 @@
 class Field {
 public:
     std::string name;
+    // Optional help text, shown in the hover of the construct that has this field.
+    std::string description;
     std::vector<Reference> references; 
 
     explicit Field(std::string  name, const std::vector<Reference>& references);

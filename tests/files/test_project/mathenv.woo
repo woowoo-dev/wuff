@@ -1,0 +1,23 @@
+.Chapter Math environment
+  label: cm
+
+
+.equation:
+  label: eq-one
+
+  x = 1
+
+    y = 2
+
+
+.gather:
+
+  a &= b \\
+  c &= d
+
+    e = f
+
+
+!pseudocode:
+
+  \State $g \gets 3$

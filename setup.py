@@ -103,6 +103,13 @@ class CMakeBuild(build_ext):
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+            # The module needs macOS 10.15, the first release whose libc++ provides
+            # std::filesystem, so never target anything older. Wheel builds set
+            # MACOSX_DEPLOYMENT_TARGET and delocate rejects binaries requiring a newer
+            # macOS than that value, hence the pass-through instead of a hard-coded
+            # -mmacosx-version-min in CMakeLists.txt.
+            deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET", "10.15")
+            cmake_args += [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}"]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
@@ -132,7 +139,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
     name="wuff",
-    version="1.2.1",
+    version="1.3.0",
     author="Michal Janecek",
     author_email="michal.janecek@gmail.com",
     description="Analysis engine for WooWoo workspaces.",
@@ -141,7 +148,23 @@ setup(
     ext_modules=[CMakeExtension("wuff")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
-    extras_require={"test": ["pytest>=6.0"]},
-    python_requires=">=3.8",
+    extras_require={"test": ["pytest>=8.0"]},
+    python_requires=">=3.10",
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Operating System :: MacOS",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Text Processing :: Markup",
+    ],
 )
 

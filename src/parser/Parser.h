@@ -24,6 +24,9 @@ public:
     TSTree* parseYaml(const std::string& source);
     TSTree* parseBibTeX(const std::string& source);
     std::vector<MetaContext *> parseMetas(TSTree * WooWooTree, const std::string& source);
+    // Name of the structure a node introduces: the document part type, the outer environment type or
+    // the wobject type; empty for other nodes.
+    static std::string extractStructureName(const TSNode & node, const std::string &source);
     static Parser * getInstance();
 
 private:
@@ -37,7 +40,6 @@ private:
     
     void prepareQueries();
     TSQuery * metaBlocksQuery;
-    static std::string extractStructureName(const TSNode & node, const std::string &source);
 };
 
 

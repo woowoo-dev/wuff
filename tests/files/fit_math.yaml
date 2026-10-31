@@ -1,6 +1,6 @@
 name: "FIT Math"
-version_code: 1
-version_name: "1.0.0"
+version_code: 3
+version_name: "1.2.0"
 description: |-
   This dialect is used for writing almost all of the math courses on FIT CTU.
   Blocks are rendered as paragraphs.
@@ -10,6 +10,16 @@ description: |-
 implicit_outer_environment: "equation"
 
 # meta block fields common for all wobjects/docparts
+# Hover hints are Markdown. The description of an entry is shown in the hover of the
+# corresponding document part, wobject or environment, together with the list of meta-block
+# fields the entry accepts (required ones are marked). Field descriptions are appended to the
+# field name in that list, so only fields with a non-obvious meaning need one. Use a block
+# scalar (`|-`) when a description should have several paragraphs.
+#
+# `skip` and `only` take a template name or a list of them (`only: fit-pdf`,
+# `only: [fit-pdf, fit-epub]`, `skip: fit-html`) and control in which templates the node is
+# rendered. Every entry accepts them, so they carry no description of their own.
+
 
 document_parts:
   - name: "Chapter"
@@ -17,12 +27,17 @@ document_parts:
     meta_block: &doc_part_meta
       required_fields:
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
       optional_fields:
         - name: skip # string or [string]
         - name: only # string or [string]
         - name: short_title
         - name: pdf_string
+          description: "short title used in the running head (PDF)"
+        - name: plain_title
+          description: "title used in the browser titlebar (HTML)"
         - name: index
+          description: "makeidx entry, `term` or `term!subterm`"
 
   - name: "Section"
     description: "Second-level document part with the section's textual content and list of subsections."
@@ -43,7 +58,15 @@ wobjects:
         - name: title
         - name: english
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: index
+          description: "makeidx entry, `term` or `term!subterm`"
+        - name: nonumber
+          description: "boolean, leaves the object unnumbered"
+
+  - name: "Concept"
+    description: "Mathematical environment containing an informal definition of a concept (Czech \"Pojem\"). Has its own numbering. Otherwise identical to Definition."
+    meta_block: *default_meta
 
   - name: "Corollary"
     description: "Mathematical environment containing a corollary."
@@ -62,8 +85,13 @@ wobjects:
         - name: title
         - name: english
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: index
-        - name: star  # boolean => Starred examples are considered to be harder.
+          description: "makeidx entry, `term` or `term!subterm`"
+        - name: nonumber
+          description: "boolean, leaves the object unnumbered"
+        - name: star
+          description: "boolean, starred examples and exercises are considered harder"
 
   - name: "Exercise"
     description: "Environment intended for exercises."
@@ -76,10 +104,15 @@ wobjects:
         - name: skip
         - name: only
         - name: options
+          description: "options for the float environment"
         - name: glue
+          description: 'separates columns, defaults to `\hfill`'
         - name: vertical
+          description: 'separates rows, defaults to `\medskip`'
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: columns
+          description: "number of columns of the float"
     # Content: Should contain .images or !tikzs and a .caption.
 
   - name: "Lemma"
@@ -94,6 +127,10 @@ wobjects:
     description: "Mathematical environment containing a proposition."
     meta_block: *default_meta
 
+  - name: "Procedure"
+    description: "Environment with a textual description of a procedure."
+    meta_block: *default_meta
+
   - name: "Question"
     description: "Environment for questions with possible solutions summarized at the end of the document."
     meta_block:
@@ -101,7 +138,9 @@ wobjects:
         - name: skip
         - name: only
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: solution
+          description: "brief description of the solution, listed at the end of the document"
 
   - name: "Remark"
     description: "Mathematical environment containing a remark."
@@ -115,6 +154,7 @@ wobjects:
         - name: only
         - name: title
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: show
 
   - name: "Solution"
@@ -128,12 +168,26 @@ wobjects:
         - name: skip
         - name: only
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: options
+          description: "options for the float environment"
     # Content: Should contain !tabular or ,table and a .caption
 
   - name: "Theorem"
     description: "Mathematical environment containing a theorem."
     meta_block: *default_meta
+
+  - name: "Video"
+    description: "Analogue of the LaTeX figure float environment but intended for embedded videos."
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
+        - name: nonumber
+          description: "boolean, leaves the object unnumbered"
+    # Content: Should contain .youtube and optionally a .caption.
 
   - name: "Warning"
     description: "Mathematical environment containing a warning."
@@ -146,83 +200,156 @@ environments:
     description: "An enumerated list."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: type
+          description: "numbering style, `1` (default) or `a`"
 
   - name: equation
     description: "A simple math equation"
+    math: true
     meta_block: &optional_label
       optional_fields:
+        - name: skip
+        - name: only
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
 
   - name: align
     description: "AMSMath align environment. At the moment only the last equation is numbered."
+    math: true
     meta_block: *optional_label
 
   - name: gather
     description: "AMSMath gather environment."
+    math: true
     meta_block: *optional_label
 
   - name: caption
-    description: "Caption of a Figure or Table float."
+    description: "Caption of a Figure, Table or Video float."
+    meta_block: &generic_meta
+      optional_fields:
+        - name: skip
+        - name: only
 
   - name: cell
     description: "Table cell."
+    meta_block: *generic_meta
 
   - name: centered
     description: "A row with a centered content."
+    meta_block: *generic_meta
 
   - name: codeblock
-    description: "Code block typeset by the pygmentize package."
+    description: "Code block highlighted by pygments (minted in the PDF template)."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: language
+          description: "Pygments language, overrides the code language of the Woofile"
 
+  # the upstream READMEs spell the heading "decription"; the environment is description
   - name: description
     description: "Description list with custom bullets. Essentially the itemize environment."
+    meta_block: *generic_meta
 
   - name: ditem
     description: "A description item with a custom bullet."
     meta_block:
       required_fields:
         - name: bullet
+          description: "marker placed before the item text"
+      optional_fields:
+        - name: skip
+        - name: only
 
   - name: image
     description: "Inclusion of an external image."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: alt
+          description: "alternative text, shown as a tooltip (HTML)"
+        - name: invert
+          description: "boolean, keeps the original colors in the dark mode (HTML)"
         - name: options
 
   - name: itemize
     description: "A general unnumbered list."
+    meta_block: *generic_meta
 
   - name: item
     description: "A general list item."
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: bullet
+          description: "marker placed before the item text"
+
+  - name: paragraph
+    description: "A paragraph of text. One does not use this directly."
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: noindent
+          description: "boolean, the paragraph is not indented"
 
   - name: quote
     description: "A quotation."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: author
+          description: "author of the quotation"
         - name: link
+          description: "URL of the source"
 
   - name: table
     description: "Custom table environment composed of .rows, and optional .cells."
     meta_block:
       required_fields:
         - name: columns
+          description: "column definition, e.g. `ll`"
       optional_fields:
+        - name: skip
+        - name: only
         - name: arraystretch
+          description: "relative change of the row height, `1` means no change"
 
   - name: row
     description: "A table row."
+    meta_block: *generic_meta
 
   - name: tabular
     description: "Simple tables processed by pandoc."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: arraystretch
+          description: "relative change of the row height, `1` means no change"
         - name: filename
+          description: "location of the intermediate file"
+
+  - name: geogebra
+    description: "A GeoGebra material embed. The content is the GeoGebra material ID."
+    meta_block: *generic_meta
+
+  - name: youtube
+    description: "YouTube video embed. The content is the video ID."
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: playlist
+          description: "ID of the playlist the video is played from"
+        - name: aspect
+          description: "aspect ratio of the player, defaults to `16x9`"
 
     # - - - Environments mainly used in outer fragile form:
   - name: tikz
@@ -231,22 +358,55 @@ environments:
     meta_block:
       required_fields:
         - name: filename
+          description: "name of the generated file, must be unique per picture"
       optional_fields:
+        - name: skip
+        - name: only
         - name: options
         - name: include_options
+        - name: alt
+          description: "alternative text, shown as a tooltip (HTML)"
+        - name: invert
+          description: "boolean, keeps the original colors in the dark mode (HTML)"
+
+  - name: dot
+    description: "A dot (Graphviz) picture environment."
+    fragile: true
+    meta_block:
+      required_fields:
+        - name: filename
+          description: "name of the generated file, must be unique per picture"
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: include_options
+
+  - name: pseudocode
+    description: "Algorithmic pseudocode, usually inside an .Algorithm or a .Procedure."
+    fragile: true
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: linenumber
+          description: "boolean, numbers the lines"
 
   - name: sage
     description: "A sage cell (note: WIP)."
+    meta_block: *generic_meta
 
     # - - - Environments mainly used in inner form:
   - name: quoted
     description: "A piece of quoted text, inline."
+    meta_block: *generic_meta
 
   - name: emphasize
     description: "An emphasized text."
+    meta_block: *generic_meta
 
   - name: footnote
     description: "A footnote."
+    meta_block: *generic_meta
 
   - name: mpopup
     description: | 
@@ -255,30 +415,44 @@ environments:
     meta_block:
       required_fields:
         - name: hint
+          description: "text of the pop-up"
+      optional_fields:
+        - name: skip
+        - name: only
 
   - name: notion
     description: "An introduction of a new notion."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: label
+          description: "unique identifier, targeted by `.reference:`, `.eqref:` and `#`"
         - name: index
+          description: "makeidx entry, `term` or `term!subterm`"
 
   - name: reference
     description: "A reference to other part of document or outside source."
     meta_block:
       optional_fields:
+        - name: skip
+        - name: only
         - name: ref
+          description: "label to reference, same as the short form of the environment"
           references:
             - meta_key: label
         - name: link
+          description: "external URL to link to"
     references:
       - meta_key: label
 
   - name: todo
     description: "A brief inline todo note."
+    meta_block: *generic_meta
 
   - name: eqref
     description: "Equation reference."
+    meta_block: *generic_meta
     references:
       - structure_type: outer_environment
         structure_name: equation
@@ -286,15 +460,24 @@ environments:
 
   - name: cite
     description: "Citation of a bibliography source."
+    meta_block: *generic_meta
 
   - name: code
-    description: "Inline code with no highlighting."
+    description: "Inline code highlighted by pygments (minted in the PDF template)."
+    meta_block:
+      optional_fields:
+        - name: skip
+        - name: only
+        - name: language
+          description: "Pygments language, overrides the code language of the Woofile"
 
   - name: small
     description: "Text typeset in smaller font size."
+    meta_block: *generic_meta
 
   - name: underline
     description: "An underlined text."
+    meta_block: *generic_meta
 
 shorthands:
   hash:
@@ -313,5 +496,8 @@ shorthands:
 # This dialect is compiled from the listed sources.
 # The information was combined.
 # 1) https://gitlab.fit.cvut.cz/woowoo/fit-html
-#    - full_reference not added yet
 # 2) https://gitlab.fit.cvut.cz/woowoo/fit-pdf
+#
+# Template-internal names that authors never write are intentionally absent:
+# `full_reference` is the rendering of `"text"#label` (covered by the `hash`
+# shorthand) and `text`/`text_stub` are generated from plain blocks.
