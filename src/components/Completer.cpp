@@ -4,6 +4,7 @@
 
 #include "Completer.h"
 #include "../utils/utils.h"
+#include <unordered_set>
 
 Completer::Completer(WooWooAnalyzer *analyzer) : Component(analyzer) {
     prepareQueries();
@@ -12,12 +13,25 @@ Completer::Completer(WooWooAnalyzer *analyzer) : Component(analyzer) {
 
 std::vector<CompletionItem> Completer::complete(const CompletionParams &params) {
     std::vector<CompletionItem> completionItems;
+    auto document = analyzer->getDocumentByUri(params.textDocument.uri);
+    if (!document) return completionItems;
+    auto pos = document->utfMappings->utf16ToUtf8(params.position.line, params.position.character);
 
-    if (params.context->triggerKind == CompletionTriggerKind::TriggerCharacter) {
+    bool triggered = params.context.has_value() && params.context->triggerKind == CompletionTriggerKind::TriggerCharacter;
+
+    // inside a reference value (".reference:ct", "ref: ct", "#ct"): complete it; on Ctrl+Space or while typing
+    // only when the edit, which replaces the whole value typed so far, is applied
+    auto usage = document->findReferenceUsageAt(pos.first, pos.second);
+    if (usage.has_value() && (triggered || textEditsApplied)) {
+        completeReferenceUsage(completionItems, document, usage.value());
+        return completionItems;
+    }
+
+    if (triggered) {
         if (params.context->triggerCharacter == ".") {
             completeInclude(completionItems, params);
         } else if (params.context->triggerCharacter == ":") {
-            completeInnerEnvs(completionItems, params);
+            completeInnerEnvs(completionItems, document, pos.first, pos.second);
         } else if (params.context->triggerCharacter == "#" ||
                    params.context->triggerCharacter == "@") {
             completeShorthand(completionItems, params);
@@ -88,13 +102,11 @@ void Completer::completeInclude(std::vector<CompletionItem> &completionItems, co
  * \param completionItems 
  * \param params 
  */
-void Completer::completeInnerEnvs(std::vector<CompletionItem> &completionItems, const CompletionParams &params) {
-    auto document = analyzer->getDocumentByUri(params.textDocument.uri);
-
+void Completer::completeInnerEnvs(std::vector<CompletionItem> &completionItems, DialectedWooWooDocument *document,
+                                  uint32_t line, uint32_t character) {
     TSQueryCursor *cursor = ts_query_cursor_new();
-    auto start = params.position.character - 2 > 0 ? params.position.character - 2 : 0;
-    TSPoint start_point = {params.position.line, start};
-    TSPoint end_point = {params.position.line, params.position.character + 1};
+    TSPoint start_point = {line, character >= 2 ? character - 2 : 0};
+    TSPoint end_point = {line, character + 1};
     ts_query_cursor_set_point_range(cursor, start_point, end_point);
     ts_query_cursor_exec(cursor, queries[shortInnerEnvironmentQuery], ts_tree_root_node(document->tree));
 
@@ -128,13 +140,43 @@ void Completer::completeShorthand(std::vector<CompletionItem> &completionItems, 
 void Completer::searchProjectForReferencables(std::vector<CompletionItem> &completionItems, WooWooDocument * doc,
                                               std::string &referencingValue) {
 
+    std::unordered_set<std::string> offered;
     for (auto projectDocument: analyzer->getProjectByDocument(doc)->getAllDocuments()) {
         for (auto referencable: projectDocument->getReferencablesBy(referencingValue)) {
-            CompletionItem item(projectDocument->getMetaNodeText(referencable.first, referencable.second));
-            completionItems.emplace_back(item);
+            auto value = projectDocument->getMetaNodeText(referencable.first, referencable.second);
+            if (offered.insert(value).second) {
+                completionItems.emplace_back(value);
+            }
         }
     }
 
+}
+
+/**
+ * Complete the value of a reference usage with everything its type can refer to (given by the dialect).
+ * Each item replaces the whole value typed so far, so values with characters that the editor does not
+ * consider a part of a word (`sec-two`) are completed correctly.
+ */
+void Completer::completeReferenceUsage(std::vector<CompletionItem> &completionItems, DialectedWooWooDocument *document,
+                                       const ReferenceUsage &usage) {
+    Range editRange = usage.range;
+    document->utfMappings->utf8ToUtf16(editRange);
+
+    auto project = analyzer->getProjectByDocument(document);
+    std::unordered_set<std::string> offered;
+    for (const Reference &reference: DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName)) {
+        for (Referencable &referencable: project->getReferencables(reference)) {
+            if (!offered.insert(referencable.value).second) continue;
+            auto optionalText = [](std::string &text) {
+                return text.empty() ? std::nullopt : std::optional<std::string>(std::move(text));
+            };
+            // insertText too: language servers that do not use the edit insert the value as before
+            completionItems.emplace_back(referencable.value, CompletionItemKind::Reference, std::nullopt,
+                                         referencable.value, optionalText(referencable.detail),
+                                         optionalText(referencable.documentation),
+                                         TextEdit(editRange, referencable.value));
+        }
+    }
 }
 
 

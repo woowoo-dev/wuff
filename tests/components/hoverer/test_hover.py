@@ -52,3 +52,34 @@ def test_hover_lists_meta_block_fields(analyzer, upstream_uri):
     dot_hover = hover(40, 2)
     assert "`filename` **(required)**" in dot_hover, "Expected the required field to be marked"
     assert "fragile form: `!dot`" in dot_hover, "Expected the fragile form hint"
+
+
+# line 4 of bibliography.woo
+CZECH_LINE = "My budeme čerpat zejména z učebnic .cite:Trefethen_Bau_1997 a .cite:Higham_2002."
+
+
+def hover_at(analyzer, uri, line, char):
+    return analyzer.hover(TextDocumentPositionParams(TextDocumentIdentifier(uri), Position(line, char)))
+
+
+def test_hover_cite(analyzer, bibliography_uri):
+    assert hover_at(analyzer, bibliography_uri, 4, CZECH_LINE.index("Trefethen") + 2) == \
+        "**Numerical Linear Algebra**\n\nTrefethen, Lloyd N. and Bau, David · 1997 · book"
+
+
+def test_hover_cite_unknown_key(analyzer, bibliography_uri):
+    assert hover_at(analyzer, bibliography_uri, 6, 8) == ""
+
+
+def test_hover_cite_type_unchanged(analyzer, bibliography_uri):
+    # on the `cite` of `.cite:` the description from the dialect, as before
+    assert hover_at(analyzer, bibliography_uri, 5, 2).startswith("Citation of a bibliography source.")
+
+
+def test_cite_completion_documentation(analyzer, bibliography_uri):
+    from wuff import CompletionParams, CompletionContext, CompletionTriggerKind
+    results = analyzer.complete(CompletionParams(
+        TextDocumentIdentifier(bibliography_uri), Position(8, 6),
+        CompletionContext(CompletionTriggerKind.TriggerCharacter, ":")))
+    higham = next(result for result in results if result.label == "Higham_2002")
+    assert higham.documentation == "**Accuracy and Stability of Numerical Algorithms**\n\nHigham, Nicholas J. · 2002 · book"

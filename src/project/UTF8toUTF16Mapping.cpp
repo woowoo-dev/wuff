@@ -10,45 +10,43 @@ void UTF8toUTF16Mapping::buildMappings(const std::string& source) {
     std::istringstream stream(source);
     std::string line;
     while (std::getline(stream, line)) {
-        utf8ToUtf16Mappings.push_back(lineUtf8ToUtf16Mapping(line));
-    }
-
-    // Build reverse mappings
-    for (const auto& map : utf8ToUtf16Mappings) {
-        std::unordered_map<uint32_t, uint32_t> reverseMap;
-        for (const auto& pair : map) {
-            reverseMap[pair.second] = pair.first;
-        }
-        utf16ToUtf8Mappings.push_back(reverseMap);
+        addLineMappings(line);
     }
 }
 
-std::unordered_map<uint32_t , uint32_t > UTF8toUTF16Mapping::lineUtf8ToUtf16Mapping(const std::string& line) {
-    std::unordered_map<uint32_t , uint32_t > mapping;
+// Every byte of a character maps to the character's UTF-16 position, and every UTF-16 position maps
+// back to the first byte of its character. The end of the line (a cursor after the last character)
+// is mapped as well.
+void UTF8toUTF16Mapping::addLineMappings(const std::string& line) {
+    std::unordered_map<uint32_t, uint32_t> toUtf16;
+    std::unordered_map<uint32_t, uint32_t> toUtf8;
     uint32_t utf8Offset = 0;
     uint32_t utf16Position = 0;
 
     while (utf8Offset < line.size()) {
-        unsigned char c = line[utf8Offset];
-        int charLen = utf8CharLen(c);
-        if (charLen == 0) { // Error handling for invalid UTF-8 byte
+        uint32_t charStart = utf8Offset;
+        int charLen = utf8CharLen(line[utf8Offset]);
+        if (charLen == 0 || charStart + charLen > line.size()) { // Error handling for invalid UTF-8
             std::cerr << "Invalid UTF-8 byte encountered" << std::endl;
             break;
         }
 
         uint32_t codePoint = utf8ToCodePoint(line, utf8Offset, charLen);
-
         int utf16Len = (codePoint >= 0x10000) ? 2 : 1;
 
         for (int i = 0; i < charLen; ++i) {
-            mapping[utf8Offset - charLen + i] = utf16Position; // Adjust the index for mapping
+            toUtf16[charStart + i] = utf16Position;
         }
-
+        for (int i = 0; i < utf16Len; ++i) {
+            toUtf8[utf16Position + i] = charStart;
+        }
         utf16Position += utf16Len;
+    }
+    toUtf16[utf8Offset] = utf16Position;
+    toUtf8[utf16Position] = utf8Offset;
 
-        }
-
-    return mapping;
+    utf8ToUtf16Mappings.push_back(std::move(toUtf16));
+    utf16ToUtf8Mappings.push_back(std::move(toUtf8));
 }
 
 

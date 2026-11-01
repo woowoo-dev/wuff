@@ -12,11 +12,33 @@ Reference::Reference(const std::string& metaKey, const std::string& structureTyp
 }
 
 bool Reference::operator==(const Reference& other) const {
-    return metaKey == other.metaKey && structureType == other.structureType && structureName == other.structureName;
+    return target == other.target && metaKey == other.metaKey && structureType == other.structureType &&
+           structureName == other.structureName;
+}
+
+bool Reference::isComplete() const {
+    return target == ReferenceTarget::Bibliography;
+}
+
+bool Reference::isRenamable() const {
+    return target == ReferenceTarget::MetaField;
+}
+
+bool Reference::sharesTargetWith(const Reference& other) const {
+    return target == other.target && (target != ReferenceTarget::MetaField || metaKey == other.metaKey);
 }
 
 
 void Reference::deserialize(const YAML::Node& node) {
+    if (node["target"]) {
+        auto targetName = node["target"].as<std::string>();
+        if (targetName != "bibliography") {
+            throw std::runtime_error("Unknown reference target '" + targetName + "'");
+        }
+        target = ReferenceTarget::Bibliography;
+        return;
+    }
+
     if (!node["meta_key"]) {
         throw std::runtime_error("Reference YAML node is missing 'meta_key'");
     }
@@ -34,6 +56,7 @@ void Reference::deserialize(const YAML::Node& node) {
 
 namespace std {
     size_t hash<Reference>::operator()(const Reference& ref) const noexcept {
-        return hash<string>()(ref.metaKey) ^ hash<string>()(ref.structureType) ^ hash<string>()(ref.structureName);
+        return hash<int>()(static_cast<int>(ref.target)) ^ hash<string>()(ref.metaKey) ^
+               hash<string>()(ref.structureType) ^ hash<string>()(ref.structureName);
     }
 }

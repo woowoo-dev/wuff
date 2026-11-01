@@ -7,15 +7,79 @@ All notable changes to `wuff` are documented here. The format follows
 The changelog starts with version 1.3.0; earlier releases are documented in the commit
 history only.
 
-## [Unreleased]
+## [1.4.0] - 2026-11-01
+
+### Added
+
+- Bibliography support. A project reads `builder.bibtex` from its `Woofile` (a relative
+  path is relative to the `Woofile`'s folder) and parses that BibTeX file. Which constructs
+  cite is up to the dialect: a reference can have `target: bibliography` instead of a
+  `meta_key`. For such a reference (`.cite:` in the FIT math dialect):
+  - completion offers the keys of the bibliography, with the authors, the year and the
+    title next to each key;
+  - go to definition opens the entry in the `.bib` file;
+  - find references lists every citation of the key and the entry itself;
+  - hover shows the title, the authors, the year and the entry type;
+  - a key that is not in the bibliography gets a warning. Only targets that list every
+    valid value are checked; labels can be defined in other textbooks, so unknown labels
+    get no warning.
+
+  The `Woofile` and the `.bib` file are read again when their modification time changes.
+  A missing or broken `Woofile` or `.bib` file, or a `.bib` without readable entries (for
+  example one saved as UTF-16), means no bibliography (reported on stderr), never an error.
+  Bytes of the `.bib` that are not UTF-8 are shown as `�`. `@string` macros and `crossref`
+  are not resolved.
+- Completion inside any reference value, also when asked for with Ctrl+Space in the middle
+  of it (`.reference:sec-`) or while typing. Each item replaces the whole value typed so far
+  (`text_edit`), so values with `-` or `/` complete correctly. This needs a caller that
+  applies `text_edit` and says so with `WooWooAnalyzer.set_completion_text_edits(True)`, as
+  the language server 1.3.0 does. Without it, completion answers on the trigger characters
+  as in 1.3.0, because an editor on its own would replace only the last word of `sec-t`.
+- Go to definition, find references and rename work from every reference value
+  (`.reference:x`, `"…"#x`, `ref: x`), also with the cursor right after it. Find references
+  and rename worked from the label declaration only.
+- `WooWooAnalyzer.prepare_rename`: the range that a rename would change, or `None`.
+  Renaming a citation key is refused (and `rename` returns no edits for it): the server
+  cannot see unsaved changes of the `.bib` file.
+- Python API: `CompletionItem.detail`, `CompletionItem.documentation` (Markdown) and
+  `CompletionItem.text_edit`, `CompletionItemKind.Reference`, and
+  `WooWooAnalyzer.set_completion_text_edits`. Reference items also set `insertText`, so the
+  language server 1.2.0 inserts them as before.
+- C++: `Reference::target` (`ReferenceTarget::MetaField`, `ReferenceTarget::Bibliography`),
+  `Reference::isComplete`, `sharesTargetWith` and `isRenamable`; `ReferenceUsage` with
+  `DialectedWooWooDocument::getReferenceUsages` and `findReferenceUsageAt`; `Woofile::load`;
+  `Bibliography`; `WooWooProject::getBibliography`, `getReferencables`, `resolve` and
+  `describeReferencables`, the one place that knows what each reference target means.
 
 ### Changed
 
+- The test dialect copy mirrors the language server's FIT math dialect 1.3.0: `cite`
+  targets the bibliography, and `.eqref:` and `#` also reach the labels of `align` and
+  `gather` (they reached `equation` only).
+- `DialectedWooWooDocument::findLocationsOfReferences` takes a list of references, and
+  `findReferencable` takes one reference and returns a `Referencable` with a UTF-16
+  location (C++ only).
 - The PyPI page links to the GitHub repository, the changelog and the issue tracker, and
   lists Python 3.15, which the 1.3.0 wheels already cover.
 - README: links point to `woowoo-dev`; installation, development and release steps.
 - CI: current versions of the GitHub Actions (the old ones ran on the deprecated Node.js 20)
   and cibuildwheel 4.3.5. Dependabot keeps the actions up to date.
+
+### Fixed
+
+- Completion offered nothing after non-ASCII text on the same line
+  (`Viz učebnice .reference:`): the position was not converted from UTF-16.
+- Positions at the end of a line with non-ASCII text were not converted to UTF-16, so
+  semantic tokens, references and rename ranges ending there were too long.
+- Go to definition into another file could point one or two characters next to the label:
+  the position was converted with the wrong file's lines.
+- A label defined twice is offered once in completion.
+- Files with capital letters in their name (`chap-09-OLS.woo`) on macOS and Windows: the
+  path of a URI is lower-cased there, so such a file was not found by its URI. A request
+  before the file was opened crashed, and opening it loaded a second copy, whose old text
+  then answered references, rename and `.include` completion as well.
+- Go to definition on an `.include` of a file that does not exist raised an error (VS Code
+  showed *Error in server*); it finds nothing now.
 
 ## [1.3.0] - 2026-10-31
 

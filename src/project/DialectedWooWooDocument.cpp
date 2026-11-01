@@ -4,6 +4,7 @@
 
 #include "DialectedWooWooDocument.h"
 #include <algorithm>
+#include <tuple>
 #include "../utils/utils.h"
 
 DialectedWooWooDocument::DialectedWooWooDocument(const fs::path &documentPath1)
@@ -51,6 +52,8 @@ void DialectedWooWooDocument::index() {
     referencableNodes.clear();
     for (const std::string &typeName: DialectManager::getInstance()->getReferencingTypeNames()) {
         for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName(typeName)) {
+            // only meta-field targets live in documents
+            if (ref.target != ReferenceTarget::MetaField) continue;
 
             // create if not exist
             referencableNodes[ref];
@@ -98,6 +101,101 @@ void DialectedWooWooDocument::index() {
             }
         }
     }
+    collectReferenceUsages();
+}
+
+void DialectedWooWooDocument::collectReferenceUsages() {
+    referenceUsages.clear();
+    auto dialectManager = DialectManager::getInstance();
+    auto isReferencing = [dialectManager](const std::string &typeName) {
+        return !dialectManager->getPossibleReferencesByTypeName(typeName).empty();
+    };
+    auto rangeOf = [](TSNode node, uint32_t lineOffset = 0) {
+        TSPoint s = ts_node_start_point(node);
+        TSPoint e = ts_node_end_point(node);
+        return Range{{s.row + lineOffset, s.column}, {e.row + lineOffset, e.column}};
+    };
+
+    // meta-block fields (example --> "ref: chapter-01")
+    for (MetaContext *mx: metaBlocks) {
+        TSQueryCursor *cursor = ts_query_cursor_new();
+        ts_query_cursor_exec(cursor, fieldQuery, ts_tree_root_node(mx->tree));
+        TSQueryMatch match;
+        while (ts_query_cursor_next_match(cursor, &match)) {
+            std::optional<TSNode> keyNode, valueNode;
+            for (uint32_t i = 0; i < match.capture_count; ++i) {
+                uint32_t length;
+                const char *name = ts_query_capture_name_for_id(fieldQuery, match.captures[i].index, &length);
+                if (std::string(name, length) == "key") {
+                    keyNode = match.captures[i].node;
+                } else {
+                    valueNode = match.captures[i].node;
+                }
+            }
+            if (!keyNode || !valueNode) continue;
+            auto key = getMetaNodeText(mx, *keyNode);
+            if (!isReferencing(key)) continue;
+            referenceUsages.push_back({key, getMetaNodeText(mx, *valueNode), rangeOf(*valueNode, mx->lineOffset)});
+        }
+        ts_query_cursor_delete(cursor);
+    }
+
+    // short inner environments (example --> ".reference:chapter-01")
+    // and shorthands (example --> "See Chapter 1"#chapter-01")
+    TSQueryCursor *cursor = ts_query_cursor_new();
+    ts_query_cursor_exec(cursor, referencesQuery, ts_tree_root_node(tree));
+    TSQueryMatch match;
+    while (ts_query_cursor_next_match(cursor, &match)) {
+        if (match.capture_count == 0) continue;
+        TSNode node = match.captures[0].node;
+        std::string nodeType = ts_node_type(node);
+
+        std::string typeName;
+        TSNode valueNode = node;
+        if (nodeType == "short_inner_environment") {
+            auto bodyNode = utils::getChild(node, "short_inner_environment_body");
+            if (!bodyNode) continue;
+            typeName = utils::getChildText(node, "short_inner_environment_type", this);
+            valueNode = *bodyNode;
+        } else {
+            typeName = nodeType == "verbose_inner_environment_hash_end" ? "#" : "@";
+        }
+        if (!isReferencing(typeName)) continue;
+
+        Range range = rangeOf(valueNode);
+        if (ts_node_is_missing(valueNode)) {
+            // nothing typed yet: an empty value right after the ':' (or '#', '@')
+            TSNode previous = ts_node_prev_sibling(valueNode);
+            if (!ts_node_is_null(previous)) {
+                range.start = rangeOf(previous).end;
+            }
+            range.end = range.start;
+            referenceUsages.push_back({typeName, "", range});
+        } else {
+            referenceUsages.push_back({typeName, getNodeText(valueNode), range});
+        }
+    }
+    ts_query_cursor_delete(cursor);
+
+    std::sort(referenceUsages.begin(), referenceUsages.end(), [](const ReferenceUsage &a, const ReferenceUsage &b) {
+        return std::tie(a.range.start.line, a.range.start.character) <
+               std::tie(b.range.start.line, b.range.start.character);
+    });
+}
+
+const std::vector<ReferenceUsage> &DialectedWooWooDocument::getReferenceUsages() const {
+    return referenceUsages;
+}
+
+std::optional<ReferenceUsage> DialectedWooWooDocument::findReferenceUsageAt(uint32_t line, uint32_t utf8Column) const {
+    auto position = std::tie(line, utf8Column);
+    for (const ReferenceUsage &usage: referenceUsages) {
+        if (std::tie(usage.range.start.line, usage.range.start.character) <= position &&
+            position <= std::tie(usage.range.end.line, usage.range.end.character)) {
+            return usage;
+        }
+    }
+    return std::nullopt;
 }
 
 
@@ -110,153 +208,49 @@ std::vector<std::pair<MetaContext *, TSNode> > DialectedWooWooDocument::getRefer
     return referencablesByNode[referencingTypeName];
 }
 
-std::optional<std::pair<MetaContext *, TSNode>>
-DialectedWooWooDocument::findReferencable(const std::vector<Reference> &references, const std::string &referenceValue) {
+Referencable DialectedWooWooDocument::referencableOf(MetaContext *mx, TSNode valueNode) {
+    TSPoint s = ts_node_start_point(valueNode);
+    TSPoint e = ts_node_end_point(valueNode);
+    Range range{{s.row + mx->lineOffset, s.column}, {e.row + mx->lineOffset, e.column}};
+    utfMappings->utf8ToUtf16(range);
+    return {getMetaNodeText(mx, valueNode), Location(utils::pathToUri(documentPath), range), "", ""};
+}
 
-    for (auto &ref: references) {
-        if (referencableNodes[ref].contains(referenceValue)) {
-            return referencableNodes[ref][referenceValue];
-        }
+std::vector<Referencable> DialectedWooWooDocument::getReferencables(const Reference &reference) {
+    std::vector<Referencable> referencables;
+    auto found = referencableNodes.find(reference);
+    if (found == referencableNodes.end()) return referencables;
+    for (const auto &valueAndNode: found->second) {
+        referencables.push_back(referencableOf(valueAndNode.second.first, valueAndNode.second.second));
     }
+    return referencables;
+}
 
-    return std::nullopt;
+std::optional<Referencable>
+DialectedWooWooDocument::findReferencable(const Reference &reference, const std::string &referenceValue) {
+    auto found = referencableNodes.find(reference);
+    if (found == referencableNodes.end()) return std::nullopt;
+    auto valueAndNode = found->second.find(referenceValue);
+    if (valueAndNode == found->second.end()) return std::nullopt;
+    return referencableOf(valueAndNode->second.first, valueAndNode->second.second);
 }
 
 std::vector<Location>
-DialectedWooWooDocument::findLocationsOfReferences(const Reference &reference, const std::string &referenceValue) {
-
+DialectedWooWooDocument::findLocationsOfReferences(const std::vector<Reference> &references,
+                                                   const std::string &referenceValue) {
     std::vector<Location> locations;
-
-    // need to search for possible references in all meta block and environments
-    // this is done on-the-fly and thus take some time, as this operation should not occure very often
-
-    // SEARCH FOR REFERENCES FROM META-BLOCKS (example --> "ref: chapter-01")
-    for (MetaContext *mx: metaBlocks) {
-        TSQueryCursor *wooCursor = ts_query_cursor_new();
-        ts_query_cursor_exec(wooCursor, fieldQuery, ts_tree_root_node(mx->tree));
-
-        TSQueryMatch match;
-        while (ts_query_cursor_next_match(wooCursor, &match)) {
-            TSNode valueNode;
-            bool correctKey = false;
-            bool correctValue = false;
-            for (uint32_t i = 0; i < match.capture_count; ++i) {
-                uint32_t capture_index = match.captures[i].index;
-                TSNode capturedNode = match.captures[i].node;
-
-                uint32_t valueCaptureName;
-                const char *valueCaptureNameChars = ts_query_capture_name_for_id(
-                        fieldQuery, capture_index, &valueCaptureName);
-                std::string valueCaptureNameStr(valueCaptureNameChars, valueCaptureName);
-
-                if (valueCaptureNameStr == "value") {
-                    if (getMetaNodeText(mx, capturedNode) == referenceValue) {
-                        // the field value is what we want
-                        correctValue = true;
-                    } else {
-                        break;
-                    }
-                    valueNode = capturedNode;
-                } else if (valueCaptureNameStr == "key") {
-                    auto metaFieldKey = getMetaNodeText(mx, capturedNode);
-
-                    for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName(metaFieldKey)) {
-                        if (ref.metaKey == reference.metaKey) {
-                            correctKey = true;
-                        }
-                    }
-
-                }
-            }
-            if (!correctKey || !correctValue) continue;
-            auto s = ts_node_start_point(valueNode);
-            auto e = ts_node_end_point(valueNode);
-            Location l = {utils::pathToUri(documentPath), Range{{s.row + mx->lineOffset, s.column},
-                                                                {e.row + mx->lineOffset, e.column}}};
-            locations.emplace_back(l);
-
-        }
-        ts_query_cursor_delete(wooCursor);
-
-    }
-
-    // SEARCH FOR REFERENCES FROM SHORT INNER ENVIRONMETS (example --> ".reference:chapter-01")
-    // SEARCH FOR REFERENCES FROM SHORTHANDS (example --> "See Chapter 1"#chapter-01")
-
-    TSQueryCursor *cursor = ts_query_cursor_new();
-    ts_query_cursor_exec(cursor, referencesQuery, ts_tree_root_node(tree));
-
-    TSQueryMatch match;
-    std::string nodeType;
-    std::string nodeText;
-    while (ts_query_cursor_next_match(cursor, &match)) {
-        if (match.capture_count > 0) {
-            TSNode node = match.captures[0].node;
-
-            nodeType = ts_node_type(node);
-            nodeText = getNodeText(node);
-            
-            if (nodeType == "short_inner_environment"){ 
-                auto value = utils::getChildText(node, "short_inner_environment_body", this);
-                auto valueNodeOpt = utils::getChild(node, "short_inner_environment_body");
-                TSNode valueNode;
-                if(!valueNodeOpt.has_value()){
-                    continue;
-                } else {
-                    valueNode = valueNodeOpt.value();
-                }
-                
-                auto s = ts_node_start_point(valueNode);
-                auto e = ts_node_end_point(valueNode);
-                
-                if (value != referenceValue) continue;
-                auto shortInnerEnvironmentType = utils::getChildText(node, "short_inner_environment_type", this);
-
-                for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName(shortInnerEnvironmentType)) {
-                    if (ref.metaKey == reference.metaKey) {
-                        Location l = {utils::pathToUri(documentPath), Range{{s.row, s.column},
-                                                                            {e.row, e.column}}};
-                        locations.emplace_back(l);
-                        break;
-                    }
-                }
-
-            }
-            if (nodeType == "verbose_inner_environment_hash_end") {
-                auto s = ts_node_start_point(node);
-                auto e = ts_node_end_point(node);
-                if (nodeText != referenceValue) continue;
-
-                for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName("#")) {
-                    if (ref.metaKey == reference.metaKey) {
-                        Location l = {utils::pathToUri(documentPath), Range{{s.row, s.column},
-                                                                            {e.row, e.column}}};
-                        locations.emplace_back(l);
-                        break;
-                    }
-                }
-            }
-            if (nodeType == "verbose_inner_environment_at_end") {
-                auto s = ts_node_start_point(node);
-                auto e = ts_node_end_point(node);
-                if (nodeText != referenceValue) continue;
-
-                for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName("@")) {
-                    if (ref.metaKey == reference.metaKey) {
-                        Location l = {utils::pathToUri(documentPath), Range{{s.row, s.column},
-                                                                            {e.row, e.column}}};
-                        locations.emplace_back(l);
-                        break;
-                    }
-                }
-            }
-
+    for (const ReferenceUsage &usage: referenceUsages) {
+        if (usage.value != referenceValue) continue;
+        auto usageReferences = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName);
+        bool sharesTarget = std::any_of(usageReferences.begin(), usageReferences.end(), [&references](const Reference &ref) {
+            return std::any_of(references.begin(), references.end(),
+                               [&ref](const Reference &other) { return ref.sharesTargetWith(other); });
+        });
+        if (sharesTarget) {
+            locations.emplace_back(utils::pathToUri(documentPath), usage.range);
         }
     }
-
-
     return locations;
-
 }
 
 // constructs besides metablock fields which could reference something

@@ -27,3 +27,36 @@ def test_diagnose_upstream_dialect_entries(analyzer, upstream_uri):
     diagnostics = diagnose_document(analyzer, upstream_uri)
     assert len(diagnostics) == 0, \
         f"Expected no diagnostics, got {[d.message for d in diagnostics]}"
+
+
+def warnings_of(diagnostics):
+    return [d for d in diagnostics if d.severity == DiagnosticSeverity.Warning]
+
+
+def test_unknown_cite_warning(analyzer, bibliography_uri):
+    diagnostics = diagnose_document(analyzer, bibliography_uri)
+    warnings = sorted((d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character,
+                       d.message, d.source) for d in warnings_of(diagnostics))
+    assert warnings == [
+        (5, 6, 5, 9, "'Tre' is not in the bibliography (references.bib)", "wuff"),
+        (6, 6, 6, 18, "'Unknown_2000' is not in the bibliography (references.bib)", "wuff"),
+    ]
+    # the empty `.cite:` keeps only its syntax error
+    assert [d.message for d in diagnostics if d.severity == DiagnosticSeverity.Error] == \
+        ["Syntax error: MISSING short_inner_environment_body"]
+
+
+def test_no_warning_for_labels(make_workspace, tmp_path):
+    # labels can be defined in other textbooks (the catalogue), so an unknown label is not flagged
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n",
+                                          "refs.bib": "@book{Known_2000, title = {K}}\n",
+                                          "a.woo": ".Chapter A\n  label: a\n\n\nSee .reference:does-not-exist.\n"})
+    assert diagnose_document(workspace, (tmp_path / 'a.woo').as_uri()) == []
+
+
+def test_no_warning_without_bibliography(make_workspace, tmp_path):
+    document = ".Chapter A\n  label: a\n\n\nSee .cite:Anything_2000.\n"
+    workspace = make_workspace({"project/Woofile": "builder:\n  build_dir: build\n",
+                                          "project/a.woo": document, "loose/b.woo": document})
+    assert diagnose_document(workspace, (tmp_path / 'project' / 'a.woo').as_uri()) == []
+    assert diagnose_document(workspace, (tmp_path / 'loose' / 'b.woo').as_uri()) == []

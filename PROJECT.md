@@ -14,7 +14,9 @@ Starting with version 1.2.0, wuff supports **WooWoo Projects**. A project is a f
 ## Limitations
 
 ### Woofile Parsing
-The `Woofile` content is **not parsed** in this version. The file only serves as a marker to identify project boundaries. Features like BibTeX integration are planned for future releases.
+Since version 1.4.0 the `Woofile` is read, for one field so far: `builder.bibtex`, the project's BibTeX file (relative to the `Woofile`'s folder). Its entries are what the dialect's bibliography references (`.cite:`) complete, open, list and check. Other fields are ignored; new ones go to `src/project/Woofile.*`.
+
+The `Woofile` and the `.bib` file are read again when their modification time changes, so editing them needs no restart. A missing or broken file means no bibliography and is reported on stderr.
 
 ### Dynamic Changes
 Project structure is detected **at startup only**:
@@ -27,6 +29,5 @@ If you modify your project structure, restart your IDE or reload the workspace t
 
 ## Future Plans
 
-- Woofile YAML parsing
-- BibTeX bibliography integration
-- Dynamic project detection (watch for Woofile changes)
+- More `Woofile` fields (e.g. the `catalogue`, so labels from other textbooks can be resolved)
+- Dynamic project detection (watch for new or deleted Woofiles)

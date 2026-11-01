@@ -11,6 +11,8 @@
 #include <optional>
 #include "tree_sitter/api.h"
 #include "../lsp/LSPTypes.h"
+#include "ReferenceUsage.h"
+#include "Referencable.h"
 
 namespace fs = std::filesystem;
 
@@ -24,14 +26,24 @@ public:
     std::vector<std::pair<MetaContext *, TSNode>> getReferencablesBy(const std::string& referencingTypeName);
     void updateSource(std::string &source) override;
 
-    std::optional<std::pair<MetaContext *, TSNode>> findReferencable(const std::vector<Reference> & references, const std::string & referenceValue);
+    // the meta-field values the reference can point at (UTF-16 locations)
+    std::vector<Referencable> getReferencables(const Reference & reference);
+    std::optional<Referencable> findReferencable(const Reference & reference, const std::string & referenceValue);
     
-    std::vector<Location> findLocationsOfReferences(const Reference & reference, const std::string & referenceValue);
-    
+    // usages whose value is referenceValue and whose type can refer to a target of the references; UTF-8 ranges
+    std::vector<Location> findLocationsOfReferences(const std::vector<Reference> & references, const std::string & referenceValue);
+
+    // every reference usage of the document, in document order
+    const std::vector<ReferenceUsage> & getReferenceUsages() const;
+    // the usage whose value contains the position (its end included)
+    std::optional<ReferenceUsage> findReferenceUsageAt(uint32_t line, uint32_t utf8Column) const;
+
 
 private:
 
     void index();
+    void collectReferenceUsages();
+    Referencable referencableOf(MetaContext * mx, TSNode valueNode);
 
     void prepareQueries();
     TSQuery * fieldQuery;
@@ -42,6 +54,8 @@ private:
     
     // given Reference and value (of a metablock field), store the node and MetaContext (this is what is being referenced, e.g. label value)
     std::unordered_map<Reference, std::unordered_map<std::string, std::pair<MetaContext *, TSNode>>> referencableNodes;
+
+    std::vector<ReferenceUsage> referenceUsages;
 };
 
 #endif 

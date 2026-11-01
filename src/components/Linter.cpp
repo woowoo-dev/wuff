@@ -3,6 +3,7 @@
 //
 
 #include "Linter.h"
+#include <algorithm>
 
 Linter::Linter(WooWooAnalyzer *analyzer) : Component(analyzer) {
     prepareQueries();
@@ -15,8 +16,33 @@ std::vector<Diagnostic> Linter::diagnose(const TextDocumentIdentifier &tdi) {
     std::vector<Diagnostic> diagnostics;
     diagnoseErrors(doc, diagnostics);
     diagnoseMissingNodes(doc, diagnostics);
+    diagnoseUnresolvedReferences(doc, diagnostics);
 
     return diagnostics;
+}
+
+/**
+ * Warn about reference values that point at nothing, but only where that is surely a mistake: when every
+ * reference of the type has a complete target (Reference::isComplete, e.g. the bibliography) whose values
+ * are known. A label may be defined in another textbook, so label references are never flagged.
+ */
+void Linter::diagnoseUnresolvedReferences(DialectedWooWooDocument *doc, std::vector<Diagnostic> &diagnostics) {
+    auto project = analyzer->getProjectByDocument(doc);
+    for (const ReferenceUsage &usage: doc->getReferenceUsages()) {
+        if (usage.value.empty()) continue;  // nothing typed yet: a syntax error already
+        auto references = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName);
+        if (references.empty() ||
+            !std::all_of(references.begin(), references.end(), [](const Reference &ref) { return ref.isComplete(); }))
+            continue;
+
+        auto origin = project->describeReferencables(references.front());
+        if (!origin.has_value() || project->resolve(references, usage.value).has_value()) continue;
+
+        Range range = usage.range;
+        doc->utfMappings->utf8ToUtf16(range);
+        diagnostics.emplace_back(range, "'" + usage.value + "' is not in " + origin.value(), "wuff",
+                                 DiagnosticSeverity::Warning);
+    }
 }
 
 

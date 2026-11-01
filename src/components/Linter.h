@@ -19,6 +19,7 @@ public:
 private:
     void diagnoseErrors(WooWooDocument * doc, std::vector<Diagnostic> & d);
     void diagnoseMissingNodes(WooWooDocument * doc, std::vector<Diagnostic> & d);
+    void diagnoseUnresolvedReferences(DialectedWooWooDocument * doc, std::vector<Diagnostic> & d);
 
     [[nodiscard]] const std::unordered_map<std::string, std::pair<TSLanguage *, std::string>>& getQueryStringByName() const override;
 

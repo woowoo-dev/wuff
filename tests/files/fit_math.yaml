@@ -1,6 +1,6 @@
 name: "FIT Math"
-version_code: 3
-version_name: "1.2.0"
+version_code: 4
+version_name: "1.3.0"
 description: |-
   This dialect is used for writing almost all of the math courses on FIT CTU.
   Blocks are rendered as paragraphs.
@@ -457,10 +457,18 @@ environments:
       - structure_type: outer_environment
         structure_name: equation
         meta_key: label
+      - structure_type: outer_environment
+        structure_name: align
+        meta_key: label
+      - structure_type: outer_environment
+        structure_name: gather
+        meta_key: label
 
   - name: cite
     description: "Citation of a bibliography source."
     meta_block: *generic_meta
+    references:
+      - target: bibliography
 
   - name: code
     description: "Inline code highlighted by pygments (minted in the PDF template)."
@@ -487,6 +495,12 @@ shorthands:
         meta_key: label
       - structure_type: outer_environment
         structure_name: equation
+        meta_key: label
+      - structure_type: outer_environment
+        structure_name: align
+        meta_key: label
+      - structure_type: outer_environment
+        structure_name: gather
         meta_key: label
   at:
     description: "Can be used when referencing external web page."

@@ -2,6 +2,7 @@
 // Created by Michal Janecek on 31.01.2024.
 //
 
+#include <algorithm>
 #include <string>
 #include <cstring>
 #include <fstream>
@@ -12,6 +13,16 @@
 
 
 namespace utils {
+    namespace {
+        // ASCII letters only, byte by byte: the bytes of UTF-8 sequences stay as they are
+        std::string toLowerAscii(std::string text) {
+            std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+                return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : static_cast<char>(c);
+            });
+            return text;
+        }
+    }
+
     std::string percentDecode(const std::string &encoded) {
         std::string decoded;
         for (size_t i = 0; i < encoded.length(); ++i) {
@@ -38,12 +49,12 @@ namespace utils {
         path = percentDecode(path); // Decode any percent-encoded characters
 
 #ifdef __APPLE__
-        std::transform(path.begin(), path.end(), path.begin(), ::tolower);
+        path = toLowerAscii(path);
 #endif
 
 
 #ifdef _WIN32
-        std::transform(path.begin(), path.end(), path.begin(), ::tolower);
+        path = toLowerAscii(path);
         // Windows file URIs start with a '/', which should not be present in the final path
         // Additionally, we need to handle drive letters (e.g., 'C:/')
         if (path.size() > 1 && path[0] == '/' && path[2] == ':') {
@@ -54,6 +65,15 @@ namespace utils {
 #endif
 
         return fs::path(path).generic_string(); // Convert to generic path format
+    }
+
+
+    std::string documentKey(const fs::path &documentPath) {
+#if defined(__APPLE__) || defined(_WIN32)
+        return toLowerAscii(documentPath.generic_string());
+#else
+        return documentPath.generic_string();
+#endif
     }
 
 

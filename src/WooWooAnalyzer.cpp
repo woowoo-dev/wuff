@@ -275,6 +275,10 @@ std::vector<Location> WooWooAnalyzer::references(const ReferenceParams &params) 
     return navigator->references(params);
 }
 
+std::optional<Range> WooWooAnalyzer::prepareRename(const TextDocumentPositionParams &params) {
+    return navigator->prepareRename(params);
+}
+
 WorkspaceEdit WooWooAnalyzer::rename(const RenameParams &params) {
     return navigator->rename(params);
 }
@@ -318,6 +322,10 @@ WooWooProject *WooWooAnalyzer::getProject(const std::optional<fs::path> &path) {
         }
     }
     return nullptr;
+}
+
+void WooWooAnalyzer::setCompletionTextEdits(bool applied) {
+    completer->textEditsApplied = applied;
 }
 
 void WooWooAnalyzer::setTokenTypes(std::vector<std::string> tokenTypes) {
