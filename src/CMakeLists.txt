@@ -69,6 +69,7 @@ pybind11_add_module(${PROJECT_NAME} NO_EXTRAS
     project/CommentLine.cpp
     project/UTF8toUTF16Mapping.cpp
     project/Woofile.cpp
+    project/Bibliography.cpp
     dialect/DialectManager.cpp
     dialect/DocumentPart.cpp
     dialect/Dialect.cpp
@@ -115,6 +116,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
         project/CommentLine.cpp
         project/UTF8toUTF16Mapping.cpp
         project/Woofile.cpp
+        project/Bibliography.cpp
         dialect/DialectManager.cpp
         dialect/DocumentPart.cpp
         dialect/Dialect.cpp

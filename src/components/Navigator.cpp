@@ -256,21 +256,9 @@ Location Navigator::resolveMetaBlockReference(const DefinitionParams &params) {
 Location Navigator::findReference(const DefinitionParams &params, const std::vector<Reference> &possibleReferences,
                                   const std::string &referencingValue) {
     auto document = analyzer->getDocumentByUri(params.textDocument.uri);
-
-    for (auto doc: analyzer->getProjectByDocument(document)->getAllDocuments()) {
-        std::optional<std::pair<MetaContext *, TSNode>> foundRef = doc->findReferencable(possibleReferences,
-                                                                                         referencingValue);
-
-        if (foundRef.has_value()) {
-            MetaContext *mx = foundRef.value().first;
-            TSPoint start_point = ts_node_start_point(foundRef.value().second);
-            TSPoint end_point = ts_node_end_point(foundRef.value().second);
-            auto s = document->utfMappings->utf8ToUtf16(start_point.row + mx->lineOffset, start_point.column);
-            auto e = document->utfMappings->utf8ToUtf16(end_point.row + mx->lineOffset, end_point.column);
-
-            auto fieldRange = Range{Position{s.first, s.second}, Position{e.first, e.second}};
-            return {utils::pathToUri(doc->documentPath), fieldRange};
-        }
+    auto found = analyzer->getProjectByDocument(document)->resolve(possibleReferences, referencingValue);
+    if (found.has_value()) {
+        return found->location;
     }
     return Location("", Range{Position{0, 0}, Position{0, 0}});
 }

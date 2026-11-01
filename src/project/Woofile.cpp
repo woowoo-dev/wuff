@@ -3,19 +3,22 @@
 //
 
 #include "Woofile.h"
+#include "yaml-cpp/yaml.h"
+#include "../utils/utils.h"
 
-Woofile::Woofile(const fs::path &projectFolderPath) {
-    YAML::Node yamlData = YAML::LoadFile((projectFolderPath / "Woofile").string());
-    deserialize(yamlData);
-    // TODO: if bibtex is set, load it and process it
-    // https://gitlab.fit.cvut.cz/BI-MA1/bi-ma1/-/blob/master/src/textbook/references.bib
-}
-
-void Woofile::deserialize(const YAML::Node &node) {
-    if (node["builder"] && node["builder"]["bibtex"]) {
-        bibtex = node["builder"]["bibtex"].as<std::string>();
-    } else {
-        bibtex.clear();
+Woofile Woofile::load(const fs::path &projectFolderPath) {
+    Woofile woofile;
+    fs::path woofilePath = projectFolderPath / "Woofile";
+    try {
+        const YAML::Node root = YAML::LoadFile(woofilePath.string());
+        if (root.IsMap() && root["builder"].IsMap() && root["builder"]["bibtex"].IsScalar()) {
+            fs::path bibtex = root["builder"]["bibtex"].as<std::string>();
+            if (!bibtex.empty()) {
+                woofile.bibtex = (projectFolderPath / bibtex).lexically_normal();  // an absolute bibtex wins
+            }
+        }
+    } catch (const std::exception &e) {
+        utils::appendToLogFile("Could not read " + woofilePath.string() + ": " + e.what());
     }
+    return woofile;
 }
-

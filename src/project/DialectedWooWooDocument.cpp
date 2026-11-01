@@ -208,16 +208,31 @@ std::vector<std::pair<MetaContext *, TSNode> > DialectedWooWooDocument::getRefer
     return referencablesByNode[referencingTypeName];
 }
 
-std::optional<std::pair<MetaContext *, TSNode>>
-DialectedWooWooDocument::findReferencable(const std::vector<Reference> &references, const std::string &referenceValue) {
+Referencable DialectedWooWooDocument::referencableOf(MetaContext *mx, TSNode valueNode) {
+    TSPoint s = ts_node_start_point(valueNode);
+    TSPoint e = ts_node_end_point(valueNode);
+    Range range{{s.row + mx->lineOffset, s.column}, {e.row + mx->lineOffset, e.column}};
+    utfMappings->utf8ToUtf16(range);
+    return {getMetaNodeText(mx, valueNode), Location(utils::pathToUri(documentPath), range), "", ""};
+}
 
-    for (auto &ref: references) {
-        if (referencableNodes[ref].contains(referenceValue)) {
-            return referencableNodes[ref][referenceValue];
-        }
+std::vector<Referencable> DialectedWooWooDocument::getReferencables(const Reference &reference) {
+    std::vector<Referencable> referencables;
+    auto found = referencableNodes.find(reference);
+    if (found == referencableNodes.end()) return referencables;
+    for (const auto &valueAndNode: found->second) {
+        referencables.push_back(referencableOf(valueAndNode.second.first, valueAndNode.second.second));
     }
+    return referencables;
+}
 
-    return std::nullopt;
+std::optional<Referencable>
+DialectedWooWooDocument::findReferencable(const Reference &reference, const std::string &referenceValue) {
+    auto found = referencableNodes.find(reference);
+    if (found == referencableNodes.end()) return std::nullopt;
+    auto valueAndNode = found->second.find(referenceValue);
+    if (valueAndNode == found->second.end()) return std::nullopt;
+    return referencableOf(valueAndNode->second.first, valueAndNode->second.second);
 }
 
 std::vector<Location>

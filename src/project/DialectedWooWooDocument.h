@@ -12,6 +12,7 @@
 #include "tree_sitter/api.h"
 #include "../lsp/LSPTypes.h"
 #include "ReferenceUsage.h"
+#include "Referencable.h"
 
 namespace fs = std::filesystem;
 
@@ -25,7 +26,9 @@ public:
     std::vector<std::pair<MetaContext *, TSNode>> getReferencablesBy(const std::string& referencingTypeName);
     void updateSource(std::string &source) override;
 
-    std::optional<std::pair<MetaContext *, TSNode>> findReferencable(const std::vector<Reference> & references, const std::string & referenceValue);
+    // the meta-field values the reference can point at (UTF-16 locations)
+    std::vector<Referencable> getReferencables(const Reference & reference);
+    std::optional<Referencable> findReferencable(const Reference & reference, const std::string & referenceValue);
     
     // usages whose value is referenceValue and whose type can refer to the target of reference; UTF-8 ranges
     std::vector<Location> findLocationsOfReferences(const Reference & reference, const std::string & referenceValue);
@@ -40,6 +43,7 @@ private:
 
     void index();
     void collectReferenceUsages();
+    Referencable referencableOf(MetaContext * mx, TSNode valueNode);
 
     void prepareQueries();
     TSQuery * fieldQuery;

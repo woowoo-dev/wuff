@@ -6,6 +6,8 @@
 #define WUFF_UTILS_H
 class WooWooDocument;
 #include <optional>
+#include <string>
+#include <tree_sitter/api.h>
 #include <filesystem>
 namespace fs = std::filesystem;
 

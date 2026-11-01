@@ -159,17 +159,19 @@ void Completer::completeReferenceUsage(std::vector<CompletionItem> &completionIt
     Range editRange = usage.range;
     document->utfMappings->utf8ToUtf16(editRange);
 
+    auto project = analyzer->getProjectByDocument(document);
     std::unordered_set<std::string> offered;
-    auto offer = [&](const std::string &value) {
-        if (!offered.insert(value).second) return;
-        // insertText too: language servers that do not use the edit insert the value as before
-        completionItems.emplace_back(value, CompletionItemKind::Reference, std::nullopt, value, std::nullopt,
-                                     std::nullopt, TextEdit(editRange, value));
-    };
-
-    for (auto projectDocument: analyzer->getProjectByDocument(document)->getAllDocuments()) {
-        for (auto referencable: projectDocument->getReferencablesBy(usage.typeName)) {
-            offer(projectDocument->getMetaNodeText(referencable.first, referencable.second));
+    for (const Reference &reference: DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName)) {
+        for (Referencable &referencable: project->getReferencables(reference)) {
+            if (!offered.insert(referencable.value).second) continue;
+            auto optionalText = [](std::string &text) {
+                return text.empty() ? std::nullopt : std::optional<std::string>(std::move(text));
+            };
+            // insertText too: language servers that do not use the edit insert the value as before
+            completionItems.emplace_back(referencable.value, CompletionItemKind::Reference, std::nullopt,
+                                         referencable.value, optionalText(referencable.detail),
+                                         optionalText(referencable.documentation),
+                                         TextEdit(editRange, referencable.value));
         }
     }
 }
