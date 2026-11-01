@@ -23,6 +23,8 @@ struct BibliographyEntry {
 
     // e.g. "Trefethen, Bau (1997): Numerical Linear Algebra"
     [[nodiscard]] std::string summary() const;
+    // the title in bold, then authors · year · type; missing fields are left out
+    [[nodiscard]] std::string markdown() const;
 };
 
 // The entries of a BibTeX file. @string macros and crossref are not resolved.

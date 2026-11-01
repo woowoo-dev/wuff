@@ -80,6 +80,17 @@ std::string BibliographyEntry::summary() const {
     return result;
 }
 
+std::string BibliographyEntry::markdown() const {
+    std::string details;
+    for (const std::string *part: {&author, &year, &type}) {
+        if (part->empty()) continue;
+        if (!details.empty()) details += " · ";
+        details += *part;
+    }
+    if (title.empty()) return details;
+    return details.empty() ? "**" + title + "**" : "**" + title + "**\n\n" + details;
+}
+
 std::unique_ptr<Bibliography> Bibliography::load(const fs::path &bibFile) {
     std::ifstream file(bibFile, std::ios::in | std::ios::binary);
     if (!file) {

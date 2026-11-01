@@ -86,8 +86,8 @@ void WooWooProject::deleteDocument(const DialectedWooWooDocument * document) {
 namespace {
 
 Referencable referencableOf(const Bibliography &bibliography, const BibliographyEntry &entry) {
-    auto summary = entry.summary();
-    return {entry.key, Location(utils::pathToUri(bibliography.path()), entry.keyRange), summary, summary};
+    return {entry.key, Location(utils::pathToUri(bibliography.path()), entry.keyRange), entry.summary(),
+            entry.markdown()};
 }
 
 std::optional<fs::file_time_type> modificationTime(const fs::path &path) {

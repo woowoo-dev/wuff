@@ -14,7 +14,18 @@ Hoverer::Hoverer(WooWooAnalyzer *analyzer) : Component(analyzer) {
 std::string Hoverer::hover(const TextDocumentPositionParams &params) {
     auto document = analyzer->getDocumentByUri(params.textDocument.uri);
     auto pos = document->utfMappings->utf16ToUtf8(params.position.line, params.position.character);
-    
+
+    // on a reference value: what it points at, when there is something to tell (e.g. a bibliography entry)
+    auto usage = document->findReferenceUsageAt(pos.first, pos.second);
+    if (usage.has_value()) {
+        auto target = analyzer->getProjectByDocument(document)->resolve(
+                DialectManager::getInstance()->getPossibleReferencesByTypeName(usage->typeName), usage->value);
+        if (target.has_value() && !target->documentation.empty()) {
+            return target->documentation;
+        }
+    }
+
+
     TSQueryCursor *cursor = ts_query_cursor_new();
     TSPoint start_point = {pos.first, pos.second};
     TSPoint end_point = {pos.first, pos.second + 1};
