@@ -80,11 +80,21 @@ def test_bibtex_path_relative_to_woofile(analyzer, tmp_path):
     assert cite_keys(workspace, f"file://{tmp_path / 'textbook' / 'a.woo'}") == ["Shared_2020"]
 
 
-def test_broken_woofile(analyzer, tmp_path):
+def test_broken_woofile(analyzer, tmp_path, capfd):
     workspace = make_workspace(tmp_path, {"Woofile": ":::\n- [", "a.woo": CITING_DOCUMENT})
     uri = f"file://{tmp_path / 'a.woo'}"
     assert cite_keys(workspace, uri) == []
     assert [result.label for result in complete(workspace, uri, 5, 15)] == ["a"]
+    # reported on stderr (the editor's output panel), not in a file in the user's folder
+    assert "Could not read" in capfd.readouterr().err
+    assert not (tmp_path / "log.txt").exists()
+
+
+def test_woofile_without_bibtex_is_fine(analyzer, tmp_path, capfd):
+    workspace = make_workspace(tmp_path, {"Woofile": "root_file: a.woo\nbuilder:\n  build_dir: build\n",
+                                          "a.woo": CITING_DOCUMENT})
+    assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == []
+    assert "Could not read" not in capfd.readouterr().err
 
 
 def test_missing_bib_file(analyzer, tmp_path):

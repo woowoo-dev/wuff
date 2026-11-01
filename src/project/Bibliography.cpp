@@ -5,7 +5,7 @@
 #include <sstream>
 #include "../parser/Parser.h"
 #include "UTF8toUTF16Mapping.h"
-#include "../utils/utils.h"
+#include <iostream>
 
 namespace {
 
@@ -94,7 +94,7 @@ std::string BibliographyEntry::markdown() const {
 std::unique_ptr<Bibliography> Bibliography::load(const fs::path &bibFile) {
     std::ifstream file(bibFile, std::ios::in | std::ios::binary);
     if (!file) {
-        utils::appendToLogFile("Could not read the bibliography " + bibFile.string());
+        std::cerr << "Could not read the bibliography " << bibFile.string() << std::endl;
         return nullptr;
     }
     std::stringstream buffer;
