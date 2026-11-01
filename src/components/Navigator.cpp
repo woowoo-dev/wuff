@@ -19,6 +19,11 @@ std::vector<Location> Navigator::references(const ReferenceParams &params) {
     uint32_t line = pos.first;
     uint32_t character = pos.second;
 
+    auto usage = document->findReferenceUsageAt(line, character);
+    if (usage.has_value()) {
+        return findUsageReferences(params, document, usage.value());
+    }
+
     TSQueryCursor *cursor = ts_query_cursor_new();
     TSPoint start_point = {line, character};
     TSPoint end_point = {line, character + 1};
@@ -75,7 +80,7 @@ std::vector<Location> Navigator::findMetaBlockReferences(const ReferenceParams &
             locations.emplace_back(l);
         }
 
-        searchProjectForReferences(locations, document, Reference(metaKey),
+        searchProjectForReferences(locations, document, {Reference(metaKey)},
                                    document->getMetaNodeText(mx, valueNode));
         return locations;
     } else {
@@ -83,12 +88,28 @@ std::vector<Location> Navigator::findMetaBlockReferences(const ReferenceParams &
     }
 }
 
+// all usages of the value that point at the same target as the usage; with the declaration (a label or a
+// bibliography entry) first
+std::vector<Location> Navigator::findUsageReferences(const ReferenceParams &params, DialectedWooWooDocument *document,
+                                                     const ReferenceUsage &usage) {
+    std::vector<Location> locations;
+    auto references = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName);
+    if (params.includeDeclaration) {
+        auto declaration = analyzer->getProjectByDocument(document)->resolve(references, usage.value);
+        if (declaration.has_value()) {
+            locations.emplace_back(declaration->location);
+        }
+    }
+    searchProjectForReferences(locations, document, references, usage.value);
+    return locations;
+}
+
 void
-Navigator::searchProjectForReferences(std::vector<Location> &locations, WooWooDocument *doc, const Reference &reference,
-                                      const std::string &referenceValue) {
+Navigator::searchProjectForReferences(std::vector<Location> &locations, WooWooDocument *doc,
+                                      const std::vector<Reference> &references, const std::string &referenceValue) {
 
     for (auto projectDocument: analyzer->getProjectByDocument(doc)->getAllDocuments()) {
-        for (auto refLocation: projectDocument->findLocationsOfReferences(reference, referenceValue)) {
+        for (auto refLocation: projectDocument->findLocationsOfReferences(references, referenceValue)) {
             projectDocument->utfMappings->utf8ToUtf16(refLocation);
             locations.emplace_back(refLocation);
         }
@@ -97,7 +118,46 @@ Navigator::searchProjectForReferences(std::vector<Location> &locations, WooWooDo
 
 // - - RENAME
 
+std::optional<Range> Navigator::prepareRename(const TextDocumentPositionParams &params) {
+    auto document = analyzer->getDocumentByUri(params.textDocument.uri);
+    auto pos = document->utfMappings->utf16ToUtf8(params.position.line, params.position.character);
+
+    std::optional<Range> range;
+    auto usage = document->findReferenceUsageAt(pos.first, pos.second);
+    if (usage.has_value()) {
+        auto references = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage->typeName);
+        if (usage->value.empty() ||
+            !std::all_of(references.begin(), references.end(), [](const Reference &ref) { return ref.isRenamable(); })) {
+            return std::nullopt;
+        }
+        range = usage->range;
+    } else if (document->getMetaContextByLine(pos.first)) {
+        // a declaration, e.g. `label: ct1`
+        auto metaFieldContext = extractMetaFieldKeyValue(params.textDocument, params.position);
+        if (!metaFieldContext.has_value()) return std::nullopt;
+        auto mx = metaFieldContext->first;
+        auto metaKey = document->getMetaNodeText(mx, metaFieldContext->second.first);
+        auto &allReferences = DialectManager::getInstance()->allReferences;
+        if (std::none_of(allReferences.begin(), allReferences.end(),
+                         [&metaKey](const Reference &ref) { return ref.isRenamable() && ref.metaKey == metaKey; })) {
+            return std::nullopt;
+        }
+        auto valueNode = metaFieldContext->second.second;
+        auto s = ts_node_start_point(valueNode);
+        auto e = ts_node_end_point(valueNode);
+        range = Range{{s.row + mx->lineOffset, s.column}, {e.row + mx->lineOffset, e.column}};
+    } else {
+        return std::nullopt;
+    }
+
+    document->utfMappings->utf8ToUtf16(range.value());
+    return range;
+}
+
 WorkspaceEdit Navigator::rename(const RenameParams &params) {
+    if (!prepareRename(params).has_value()) {
+        return {};
+    }
 
     // First, get all references of the symbol.
     ReferenceParams rp = ReferenceParams(params.textDocument, params.position, true);
@@ -118,6 +178,13 @@ Location Navigator::goToDefinition(const DefinitionParams &params) {
     auto pos = document->utfMappings->utf16ToUtf8(params.position.line, params.position.character);
     uint32_t line = pos.first;
     uint32_t character = pos.second;
+
+    // in a reference value (its end included)
+    auto usage = document->findReferenceUsageAt(line, character);
+    if (usage.has_value()) {
+        return findReference(params, DialectManager::getInstance()->getPossibleReferencesByTypeName(usage->typeName),
+                             usage->value);
+    }
 
     TSQueryCursor *cursor = ts_query_cursor_new();
     TSPoint start_point = {line, character};

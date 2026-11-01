@@ -20,6 +20,9 @@ public:
 
     std::vector<Location> references(const ReferenceParams &params);
 
+    // the range of the value to rename, nullopt when there is nothing to rename or the target cannot be edited
+    std::optional<Range> prepareRename(const TextDocumentPositionParams &params);
+
     WorkspaceEdit rename(const RenameParams &params);
     
     // document which was renamed (should be already updated) + its old path string
@@ -42,8 +45,11 @@ private:
 
     std::vector<Location> findMetaBlockReferences(const ReferenceParams &params);
 
-    void searchProjectForReferences(std::vector<Location> &locations, WooWooDocument *doc, const Reference &reference,
-                                    const std::string &referenceValue);
+    std::vector<Location> findUsageReferences(const ReferenceParams &params, DialectedWooWooDocument *document,
+                                              const ReferenceUsage &usage);
+
+    void searchProjectForReferences(std::vector<Location> &locations, WooWooDocument *doc,
+                                    const std::vector<Reference> &references, const std::string &referenceValue);
 
     [[nodiscard]] const std::unordered_map<std::string, std::pair<TSLanguage *, std::string>> &
     getQueryStringByName() const override;

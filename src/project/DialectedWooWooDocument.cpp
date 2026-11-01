@@ -236,13 +236,17 @@ DialectedWooWooDocument::findReferencable(const Reference &reference, const std:
 }
 
 std::vector<Location>
-DialectedWooWooDocument::findLocationsOfReferences(const Reference &reference, const std::string &referenceValue) {
+DialectedWooWooDocument::findLocationsOfReferences(const std::vector<Reference> &references,
+                                                   const std::string &referenceValue) {
     std::vector<Location> locations;
     for (const ReferenceUsage &usage: referenceUsages) {
         if (usage.value != referenceValue) continue;
-        auto references = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName);
-        if (std::any_of(references.begin(), references.end(),
-                        [&reference](const Reference &ref) { return ref.sharesTargetWith(reference); })) {
+        auto usageReferences = DialectManager::getInstance()->getPossibleReferencesByTypeName(usage.typeName);
+        bool sharesTarget = std::any_of(usageReferences.begin(), usageReferences.end(), [&references](const Reference &ref) {
+            return std::any_of(references.begin(), references.end(),
+                               [&ref](const Reference &other) { return ref.sharesTargetWith(other); });
+        });
+        if (sharesTarget) {
             locations.emplace_back(utils::pathToUri(documentPath), usage.range);
         }
     }

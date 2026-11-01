@@ -32,6 +32,8 @@ public:
     [[nodiscard]] bool isComplete() const;
     // True when both references point at the same set of values.
     [[nodiscard]] bool sharesTargetWith(const Reference& other) const;
+    // True when what it points at lives in WooWoo documents, so a rename can edit the declaration as well.
+    [[nodiscard]] bool isRenamable() const;
 
     bool operator==(const Reference& other) const;
 };

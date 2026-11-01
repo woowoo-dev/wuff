@@ -275,6 +275,10 @@ std::vector<Location> WooWooAnalyzer::references(const ReferenceParams &params) 
     return navigator->references(params);
 }
 
+std::optional<Range> WooWooAnalyzer::prepareRename(const TextDocumentPositionParams &params) {
+    return navigator->prepareRename(params);
+}
+
 WorkspaceEdit WooWooAnalyzer::rename(const RenameParams &params) {
     return navigator->rename(params);
 }

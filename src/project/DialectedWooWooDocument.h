@@ -30,8 +30,8 @@ public:
     std::vector<Referencable> getReferencables(const Reference & reference);
     std::optional<Referencable> findReferencable(const Reference & reference, const std::string & referenceValue);
     
-    // usages whose value is referenceValue and whose type can refer to the target of reference; UTF-8 ranges
-    std::vector<Location> findLocationsOfReferences(const Reference & reference, const std::string & referenceValue);
+    // usages whose value is referenceValue and whose type can refer to a target of the references; UTF-8 ranges
+    std::vector<Location> findLocationsOfReferences(const std::vector<Reference> & references, const std::string & referenceValue);
 
     // every reference usage of the document, in document order
     const std::vector<ReferenceUsage> & getReferenceUsages() const;

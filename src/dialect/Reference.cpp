@@ -20,6 +20,10 @@ bool Reference::isComplete() const {
     return target == ReferenceTarget::Bibliography;
 }
 
+bool Reference::isRenamable() const {
+    return target == ReferenceTarget::MetaField;
+}
+
 bool Reference::sharesTargetWith(const Reference& other) const {
     return target == other.target && (target != ReferenceTarget::MetaField || metaKey == other.metaKey);
 }

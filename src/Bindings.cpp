@@ -21,6 +21,7 @@ PYBIND11_MODULE(wuff, m) {
             .def("go_to_definition", &WooWooAnalyzer::goToDefinition)
             .def("complete", &WooWooAnalyzer::complete)
             .def("references", &WooWooAnalyzer::references)
+            .def("prepare_rename", &WooWooAnalyzer::prepareRename)
             .def("rename", &WooWooAnalyzer::rename)
             .def("folding_ranges", &WooWooAnalyzer::foldingRanges)
             .def("document_did_change", &WooWooAnalyzer::documentDidChange)
