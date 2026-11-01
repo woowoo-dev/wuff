@@ -46,28 +46,17 @@ def test_unknown_cite_warning(analyzer, bibliography_uri):
         ["Syntax error: MISSING short_inner_environment_body"]
 
 
-def make_workspace(root, files):
-    from wuff import WooWooAnalyzer
-    for name, text in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-    workspace = WooWooAnalyzer()
-    workspace.load_workspace(f"file://{root}")
-    return workspace
-
-
-def test_no_warning_for_labels(analyzer, tmp_path):
+def test_no_warning_for_labels(make_workspace, tmp_path):
     # labels can be defined in other textbooks (the catalogue), so an unknown label is not flagged
-    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: refs.bib\n",
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n",
                                           "refs.bib": "@book{Known_2000, title = {K}}\n",
                                           "a.woo": ".Chapter A\n  label: a\n\n\nSee .reference:does-not-exist.\n"})
-    assert diagnose_document(workspace, f"file://{tmp_path / 'a.woo'}") == []
+    assert diagnose_document(workspace, (tmp_path / 'a.woo').as_uri()) == []
 
 
-def test_no_warning_without_bibliography(analyzer, tmp_path):
+def test_no_warning_without_bibliography(make_workspace, tmp_path):
     document = ".Chapter A\n  label: a\n\n\nSee .cite:Anything_2000.\n"
-    workspace = make_workspace(tmp_path, {"project/Woofile": "builder:\n  build_dir: build\n",
+    workspace = make_workspace({"project/Woofile": "builder:\n  build_dir: build\n",
                                           "project/a.woo": document, "loose/b.woo": document})
-    assert diagnose_document(workspace, f"file://{tmp_path / 'project' / 'a.woo'}") == []
-    assert diagnose_document(workspace, f"file://{tmp_path / 'loose' / 'b.woo'}") == []
+    assert diagnose_document(workspace, (tmp_path / 'project' / 'a.woo').as_uri()) == []
+    assert diagnose_document(workspace, (tmp_path / 'loose' / 'b.woo').as_uri()) == []

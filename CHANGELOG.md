@@ -74,6 +74,12 @@ history only.
 - Go to definition into another file could point one or two characters next to the label:
   the position was converted with the wrong file's lines.
 - A label defined twice is offered once in completion.
+- Files with capital letters in their name (`chap-09-OLS.woo`) on macOS and Windows: the
+  path of a URI is lower-cased there, so such a file was not found by its URI. A request
+  before the file was opened crashed, and opening it loaded a second copy, whose old text
+  then answered references, rename and `.include` completion as well.
+- Go to definition on an `.include` of a file that does not exist raised an error (VS Code
+  showed *Error in server*); it finds nothing now.
 
 ## [1.3.0] - 2026-10-31
 

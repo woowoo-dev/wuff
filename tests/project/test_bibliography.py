@@ -2,7 +2,7 @@ import os
 
 from wuff import (
     CompletionContext, CompletionItemKind, CompletionParams, CompletionTriggerKind, Position,
-    TextDocumentIdentifier, WooWooAnalyzer
+    TextDocumentIdentifier
 )
 
 # line 4 of bibliography.woo
@@ -20,20 +20,6 @@ def complete(analyzer, uri, line, char, trigger=":"):
 
 def item(results, label):
     return next(result for result in results if result.label == label)
-
-
-def make_workspace(root, files):
-    for name, content in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(content, bytes):
-            path.write_bytes(content)
-        else:
-            path.write_text(content, encoding="utf-8")
-    analyzer = WooWooAnalyzer()
-    analyzer.set_completion_text_edits(True)
-    analyzer.load_workspace(f"file://{root}")
-    return analyzer
 
 
 def cite_keys(analyzer, uri):
@@ -61,7 +47,7 @@ def test_cite_completion_after_czech_text(analyzer, bibliography_uri):
     assert (r.start.character, r.end.character) == (start, start + len("Higham_2002"))
 
 
-def test_bibliography_tolerates_junk(analyzer, tmp_path):
+def test_bibliography_tolerates_junk(make_workspace, tmp_path):
     bib = (
         '@comment{not an entry}\n'
         '@string{fit = "FIT"}\n'
@@ -72,21 +58,21 @@ def test_bibliography_tolerates_junk(analyzer, tmp_path):
         '@article{Also_Good, title = "Quoted"}\n'
         '@book{Broken, author = {Unclosed\n'
     )
-    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib,
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib,
                                           "a.woo": CITING_DOCUMENT})
-    assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == ["Also_Good", "Good_2000", "NoFields"]
+    assert cite_keys(workspace, (tmp_path / 'a.woo').as_uri()) == ["Also_Good", "Good_2000", "NoFields"]
 
 
-def test_bibtex_path_relative_to_woofile(analyzer, tmp_path):
-    workspace = make_workspace(tmp_path, {"textbook/Woofile": "builder:\n  bibtex: ../shared/refs.bib\n",
+def test_bibtex_path_relative_to_woofile(make_workspace, tmp_path):
+    workspace = make_workspace({"textbook/Woofile": "builder:\n  bibtex: ../shared/refs.bib\n",
                                           "shared/refs.bib": "@book{Shared_2020, title = {S}}\n",
                                           "textbook/a.woo": CITING_DOCUMENT})
-    assert cite_keys(workspace, f"file://{tmp_path / 'textbook' / 'a.woo'}") == ["Shared_2020"]
+    assert cite_keys(workspace, (tmp_path / 'textbook' / 'a.woo').as_uri()) == ["Shared_2020"]
 
 
-def test_broken_woofile(analyzer, tmp_path, capfd):
-    workspace = make_workspace(tmp_path, {"Woofile": ":::\n- [", "a.woo": CITING_DOCUMENT})
-    uri = f"file://{tmp_path / 'a.woo'}"
+def test_broken_woofile(make_workspace, tmp_path, capfd):
+    workspace = make_workspace({"Woofile": ":::\n- [", "a.woo": CITING_DOCUMENT})
+    uri = (tmp_path / 'a.woo').as_uri()
     assert cite_keys(workspace, uri) == []
     assert [result.label for result in complete(workspace, uri, 5, 15)] == ["a"]
     # reported on stderr (the editor's output panel), not in a file in the user's folder
@@ -94,16 +80,16 @@ def test_broken_woofile(analyzer, tmp_path, capfd):
     assert not (tmp_path / "log.txt").exists()
 
 
-def test_woofile_without_bibtex_is_fine(analyzer, tmp_path, capfd):
-    workspace = make_workspace(tmp_path, {"Woofile": "root_file: a.woo\nbuilder:\n  build_dir: build\n",
+def test_woofile_without_bibtex_is_fine(make_workspace, tmp_path, capfd):
+    workspace = make_workspace({"Woofile": "root_file: a.woo\nbuilder:\n  build_dir: build\n",
                                           "a.woo": CITING_DOCUMENT})
-    assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == []
+    assert cite_keys(workspace, (tmp_path / 'a.woo').as_uri()) == []
     assert "Could not read" not in capfd.readouterr().err
 
 
-def test_missing_bib_file(analyzer, tmp_path):
-    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: missing.bib\n", "a.woo": CITING_DOCUMENT})
-    assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == []
+def test_missing_bib_file(make_workspace, tmp_path):
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: missing.bib\n", "a.woo": CITING_DOCUMENT})
+    assert cite_keys(workspace, (tmp_path / 'a.woo').as_uri()) == []
 
 
 def touch_later(path):
@@ -111,10 +97,10 @@ def touch_later(path):
     os.utime(path, (later, later))
 
 
-def test_bibliography_reloads(analyzer, tmp_path):
-    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: refs.bib\n",
+def test_bibliography_reloads(make_workspace, tmp_path):
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n",
                                           "refs.bib": "@book{First_2000, title = {F}}\n", "a.woo": CITING_DOCUMENT})
-    uri = f"file://{tmp_path / 'a.woo'}"
+    uri = (tmp_path / 'a.woo').as_uri()
     assert cite_keys(workspace, uri) == ["First_2000"]
 
     with open(tmp_path / "refs.bib", "a", encoding="utf-8") as bib:
@@ -123,10 +109,10 @@ def test_bibliography_reloads(analyzer, tmp_path):
     assert cite_keys(workspace, uri) == ["First_2000", "Second_2001"]
 
 
-def test_woofile_reloads(analyzer, tmp_path):
-    workspace = make_workspace(tmp_path, {"Woofile": "", "refs.bib": "@book{First_2000, title = {F}}\n",
+def test_woofile_reloads(make_workspace, tmp_path):
+    workspace = make_workspace({"Woofile": "", "refs.bib": "@book{First_2000, title = {F}}\n",
                                           "a.woo": CITING_DOCUMENT})
-    uri = f"file://{tmp_path / 'a.woo'}"
+    uri = (tmp_path / 'a.woo').as_uri()
     assert cite_keys(workspace, uri) == []
 
     (tmp_path / "Woofile").write_text("builder:\n  bibtex: refs.bib\n")
@@ -134,29 +120,39 @@ def test_woofile_reloads(analyzer, tmp_path):
     assert cite_keys(workspace, uri) == ["First_2000"]
 
 
-def test_cite_completion_without_project(analyzer, tmp_path):
-    workspace = make_workspace(tmp_path, {"a.woo": CITING_DOCUMENT})
-    assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == []
+def test_cite_completion_without_project(make_workspace, tmp_path):
+    workspace = make_workspace({"a.woo": CITING_DOCUMENT})
+    assert cite_keys(workspace, (tmp_path / 'a.woo').as_uri()) == []
 
 
-def test_bibliography_not_utf8(analyzer, tmp_path):
+def test_bibliography_not_utf8(make_workspace, tmp_path):
     # an older .bib in ISO-8859-2: the invalid bytes become U+FFFD instead of breaking the completion
     bib = "@book{Cech_1959, author = {Čech, Eduard}, title = {Bodové množiny}, year = 1959}\n".encode("iso-8859-2")
-    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib,
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib,
                                           "a.woo": CITING_DOCUMENT})
-    results = complete(workspace, f"file://{tmp_path / 'a.woo'}", 4, 10)
+    results = complete(workspace, (tmp_path / 'a.woo').as_uri(), 4, 10)
     assert [result.label for result in results] == ["Cech_1959"]
     assert results[0].detail == "\ufffdech (1959): Bodov\ufffd mno\ufffdiny"
 
 
-def test_no_warning_for_unreadable_bibliography(analyzer, tmp_path):
+def test_no_warning_for_unreadable_bibliography(make_workspace, tmp_path):
     # a .bib in UTF-16 (or a folder by mistake) yields no entries: treated as no bibliography, not as an empty one
     document = ".Chapter A\n  label: a\n\n\nSee .cite:Anything_2000.\n"
     utf16 = "@book{Anything_2000, title = {A}}\n".encode("utf-16")
-    workspace = make_workspace(tmp_path, {"utf16/Woofile": "builder:\n  bibtex: refs.bib\n", "utf16/refs.bib": utf16,
+    workspace = make_workspace({"utf16/Woofile": "builder:\n  bibtex: refs.bib\n", "utf16/refs.bib": utf16,
                                           "utf16/a.woo": document,
                                           "folder/Woofile": "builder:\n  bibtex: refs\n", "folder/refs/x.txt": "",
                                           "folder/a.woo": document})
     for project in ("utf16", "folder"):
-        diagnostics = workspace.diagnose(TextDocumentIdentifier(f"file://{tmp_path / project / 'a.woo'}"))
+        diagnostics = workspace.diagnose(TextDocumentIdentifier((tmp_path / project / 'a.woo').as_uri()))
         assert [d.message for d in diagnostics] == [], project
+
+
+def test_entry_text_with_any_letters(make_workspace, tmp_path):
+    # `Š` is C5 A0 and `à` C3 A0 in UTF-8; A0 alone is a no-break space in Latin-1, which a locale-aware
+    # whitespace test takes for a space
+    bib = "@Book{Simon_2001, author = {Šimon, Jan and Švec, Petr}, title = {À la carte}, year = 2001}\n"
+    workspace = make_workspace({"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib, "a.woo": CITING_DOCUMENT})
+    results = complete(workspace, (tmp_path / "a.woo").as_uri(), 4, 10)
+    assert results[0].detail == "Šimon, Švec (2001): À la carte"
+    assert results[0].documentation == "**À la carte**\n\nŠimon, Jan and Švec, Petr · 2001 · book"

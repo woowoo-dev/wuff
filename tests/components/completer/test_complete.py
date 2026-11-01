@@ -66,14 +66,11 @@ def test_complete_after_czech_text(analyzer, usages_uri):
     r = item.text_edit.range
     assert (r.start.line, r.start.character, r.end.line, r.end.character) == (6, 24, 6, 24)
 
-def test_complete_duplicate_label_offered_once(analyzer, tmp_path):
+def test_complete_duplicate_label_offered_once(make_workspace, tmp_path):
     # the same label defined twice (an author's mistake) is offered once
-    (tmp_path / "Woofile").write_text("")
-    (tmp_path / "a.woo").write_text(".Chapter A\n  label: twice\n\n\nSee .reference:\n")
-    (tmp_path / "b.woo").write_text(".Chapter B\n  label: twice\n")
-    project = WooWooAnalyzer()
-    project.load_workspace(f"file://{tmp_path}")
-    results = project.complete(create_completion_params(f"file://{tmp_path / 'a.woo'}", 4, 15))
+    project = make_workspace({"Woofile": "", "a.woo": ".Chapter A\n  label: twice\n\n\nSee .reference:\n",
+                              "b.woo": ".Chapter B\n  label: twice\n"})
+    results = project.complete(create_completion_params((tmp_path / 'a.woo').as_uri(), 4, 15))
     assert [result.label for result in results].count("twice") == 1
 
 

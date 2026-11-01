@@ -1,6 +1,5 @@
 #include "Bibliography.h"
 #include <algorithm>
-#include <cctype>
 #include <fstream>
 #include <sstream>
 #include "../parser/Parser.h"
@@ -42,8 +41,16 @@ std::string nodeText(TSNode node, const std::string &source) {
     return source.substr(ts_node_start_byte(node), ts_node_end_byte(node) - ts_node_start_byte(node));
 }
 
+// ASCII only: the <cctype> functions follow the locale, and in a UTF-8 locale they take single bytes of UTF-8
+// sequences for Latin-1 characters (A0, the second byte of `Š`, would be a space)
+bool isAsciiSpace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
 std::string toLower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return std::tolower(c); });
+    std::transform(text.begin(), text.end(), text.begin(), [](char c) {
+        return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+    });
     return text;
 }
 
@@ -68,7 +75,7 @@ std::string fieldValue(TSNode valueNode, const std::string &source) {
     std::string value;
     for (char c: joined) {
         if (c == '{' || c == '}') continue;
-        if (std::isspace(static_cast<unsigned char>(c))) {
+        if (isAsciiSpace(c)) {
             if (!value.empty() && value.back() != ' ') value += ' ';
         } else {
             value += c;

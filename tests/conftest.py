@@ -73,3 +73,22 @@ def usages_uri():
 @pytest.fixture(scope="session")
 def bibliography_uri():
     return generate_woo_file_uri('bibliography.woo')
+
+
+@pytest.fixture
+def make_workspace(analyzer, tmp_path):
+    """Returns a function that writes files (text, or bytes as they are) into tmp_path and gives a
+    WooWooAnalyzer with that folder as its workspace. The dialect is the session one."""
+    def make(files):
+        for name, content in files.items():
+            path = tmp_path / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                path.write_bytes(content)
+            else:
+                path.write_text(content, encoding="utf-8")
+        workspace = wuff.WooWooAnalyzer()
+        workspace.set_completion_text_edits(True)
+        workspace.load_workspace(tmp_path.as_uri())
+        return workspace
+    return make

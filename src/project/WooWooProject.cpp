@@ -23,15 +23,15 @@ WooWooProject::WooWooProject(const fs::path &projectFolderPath) : projectFolderP
 
 
 void WooWooProject::loadDocument(const fs::path &documentPath) {
-    documents[documentPath.generic_string()] = std::make_shared<DialectedWooWooDocument>(documentPath);
+    documents[utils::documentKey(documentPath)] = std::make_shared<DialectedWooWooDocument>(documentPath);
 }
 
 void WooWooProject::addDocument(const std::shared_ptr<DialectedWooWooDocument>& document) {
-    documents[document->documentPath.generic_string()] = document;
+    documents[utils::documentKey(document->documentPath)] = document;
 }
 
 DialectedWooWooDocument * WooWooProject::getDocument(const std::string &docPath) {
-    auto doc = documents.find(docPath);
+    auto doc = documents.find(utils::documentKey(docPath));
     if (doc != documents.end()) {
         return doc->second.get();
     }
@@ -77,7 +77,7 @@ std::shared_ptr<DialectedWooWooDocument> WooWooProject::getDocumentShared(WooWoo
 
 void WooWooProject::deleteDocument(const DialectedWooWooDocument * document) {
     if (!document) return;
-    auto it = documents.find(document->documentPath.generic_string());
+    auto it = documents.find(utils::documentKey(document->documentPath));
     if (it != documents.end()) {
         documents.erase(it);
     }

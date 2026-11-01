@@ -226,7 +226,12 @@ Location Navigator::goToDefinition(const DefinitionParams &params) {
 Location Navigator::navigateToFile(const DefinitionParams &params, const std::string &relativeFilePath) {
     auto document = analyzer->getDocumentByUri(params.textDocument.uri);
     auto fileBegin = Range{Position{0, 0}, Position{0, 0}};
-    fs::path filePath = fs::canonical(document->documentPath.parent_path() / relativeFilePath);
+    std::error_code error;
+    fs::path filePath = fs::canonical(document->documentPath.parent_path() / relativeFilePath, error);
+    if (error) {
+        // the included file does not exist
+        return {"", fileBegin};
+    }
     auto fileUri = "file://" + filePath.generic_string();
     return {fileUri, fileBegin};
 }
