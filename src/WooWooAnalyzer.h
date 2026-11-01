@@ -60,6 +60,11 @@ public:
     
     // LSP support functions
 
+    // The caller passes CompletionItem::textEdit on to the editor. Only then does completion answer inside a
+    // reference value on Ctrl+Space or while typing: the editor alone would replace just the last word of
+    // `sec-t` (`-` ends a word), giving `sec-sec-two`. Without it, completion answers on trigger characters,
+    // as in wuff 1.3.
+    void setCompletionTextEdits(bool applied);
     void setTokenTypes(std::vector<std::string> tokenTypes);
     void setTokenModifiers (std::vector<std::string> tokenModifiers);
     void documentDidChange(const TextDocumentIdentifier & tdi, std::string &source);

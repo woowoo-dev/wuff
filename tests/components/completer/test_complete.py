@@ -75,3 +75,13 @@ def test_complete_duplicate_label_offered_once(analyzer, tmp_path):
     project.load_workspace(f"file://{tmp_path}")
     results = project.complete(create_completion_params(f"file://{tmp_path / 'a.woo'}", 4, 15))
     assert [result.label for result in results].count("twice") == 1
+
+
+def test_invoked_completion_needs_text_edits(analyzer, usages_uri):
+    # a server that does not apply text edits (language server 1.2) keeps the completion of wuff 1.3:
+    # nothing on Ctrl+Space inside a value, where its insertion would replace only part of `sec-`
+    plain = WooWooAnalyzer()
+    test_project = usages_uri.rsplit("/", 1)[0]
+    plain.load_workspace(test_project)
+    assert plain.complete(create_invoked_params(usages_uri, 5, 19)) == []
+    assert any(result.label == "ct1" for result in plain.complete(create_completion_params(usages_uri, 6, 24)))

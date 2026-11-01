@@ -29,6 +29,7 @@ PYBIND11_MODULE(wuff, m) {
             .def("rename_files", &WooWooAnalyzer::renameFiles)
             .def("did_delete_files", &WooWooAnalyzer::didDeleteFiles)
             .def("diagnose", &WooWooAnalyzer::diagnose)
+            .def("set_completion_text_edits", &WooWooAnalyzer::setCompletionTextEdits)
             .def("set_token_types", &WooWooAnalyzer::setTokenTypes)
             .def("set_token_modifiers", &WooWooAnalyzer::setTokenModifiers);
 

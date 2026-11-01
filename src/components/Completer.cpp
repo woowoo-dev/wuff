@@ -17,14 +17,17 @@ std::vector<CompletionItem> Completer::complete(const CompletionParams &params) 
     if (!document) return completionItems;
     auto pos = document->utfMappings->utf16ToUtf8(params.position.line, params.position.character);
 
-    // inside a reference value (".reference:ct", "ref: ct", "#ct"): complete it, however the completion was asked for
+    bool triggered = params.context.has_value() && params.context->triggerKind == CompletionTriggerKind::TriggerCharacter;
+
+    // inside a reference value (".reference:ct", "ref: ct", "#ct"): complete it; on Ctrl+Space or while typing
+    // only when the edit, which replaces the whole value typed so far, is applied
     auto usage = document->findReferenceUsageAt(pos.first, pos.second);
-    if (usage.has_value()) {
+    if (usage.has_value() && (triggered || textEditsApplied)) {
         completeReferenceUsage(completionItems, document, usage.value());
         return completionItems;
     }
 
-    if (params.context.has_value() && params.context->triggerKind == CompletionTriggerKind::TriggerCharacter) {
+    if (triggered) {
         if (params.context->triggerCharacter == ".") {
             completeInclude(completionItems, params);
         } else if (params.context->triggerCharacter == ":") {

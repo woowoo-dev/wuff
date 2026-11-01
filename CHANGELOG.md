@@ -25,11 +25,16 @@ history only.
     get no warning.
 
   The `Woofile` and the `.bib` file are read again when their modification time changes.
-  A missing or broken `Woofile` or `.bib` file means no bibliography (reported on stderr),
-  never an error. `@string` macros and `crossref` are not resolved.
+  A missing or broken `Woofile` or `.bib` file, or a `.bib` without readable entries (for
+  example one saved as UTF-16), means no bibliography (reported on stderr), never an error.
+  Bytes of the `.bib` that are not UTF-8 are shown as `�`. `@string` macros and `crossref`
+  are not resolved.
 - Completion inside any reference value, also when asked for with Ctrl+Space in the middle
-  of it (`.reference:sec-`). Each item replaces the whole value typed so far, so values
-  with `-` or `/` complete correctly.
+  of it (`.reference:sec-`) or while typing. Each item replaces the whole value typed so far
+  (`text_edit`), so values with `-` or `/` complete correctly. This needs a caller that
+  applies `text_edit` and says so with `WooWooAnalyzer.set_completion_text_edits(True)`, as
+  the language server 1.3.0 does. Without it, completion answers on the trigger characters
+  as in 1.3.0, because an editor on its own would replace only the last word of `sec-t`.
 - Go to definition, find references and rename work from every reference value
   (`.reference:x`, `"…"#x`, `ref: x`), also with the cursor right after it. Find references
   and rename worked from the label declaration only.
@@ -37,8 +42,9 @@ history only.
   Renaming a citation key is refused (and `rename` returns no edits for it): the server
   cannot see unsaved changes of the `.bib` file.
 - Python API: `CompletionItem.detail`, `CompletionItem.documentation` (Markdown) and
-  `CompletionItem.text_edit`, and `CompletionItemKind.Reference`. Reference items also set
-  `insertText`, so a language server that does not use `text_edit` keeps working.
+  `CompletionItem.text_edit`, `CompletionItemKind.Reference`, and
+  `WooWooAnalyzer.set_completion_text_edits`. Reference items also set `insertText`, so the
+  language server 1.2.0 inserts them as before.
 - C++: `Reference::target` (`ReferenceTarget::MetaField`, `ReferenceTarget::Bibliography`),
   `Reference::isComplete`, `sharesTargetWith` and `isRenamable`; `ReferenceUsage` with
   `DialectedWooWooDocument::getReferenceUsages` and `findReferenceUsageAt`; `Woofile::load`;

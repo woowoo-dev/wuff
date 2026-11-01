@@ -23,11 +23,15 @@ def item(results, label):
 
 
 def make_workspace(root, files):
-    for name, text in files.items():
+    for name, content in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        if isinstance(content, bytes):
+            path.write_bytes(content)
+        else:
+            path.write_text(content, encoding="utf-8")
     analyzer = WooWooAnalyzer()
+    analyzer.set_completion_text_edits(True)
     analyzer.load_workspace(f"file://{root}")
     return analyzer
 
@@ -133,3 +137,26 @@ def test_woofile_reloads(analyzer, tmp_path):
 def test_cite_completion_without_project(analyzer, tmp_path):
     workspace = make_workspace(tmp_path, {"a.woo": CITING_DOCUMENT})
     assert cite_keys(workspace, f"file://{tmp_path / 'a.woo'}") == []
+
+
+def test_bibliography_not_utf8(analyzer, tmp_path):
+    # an older .bib in ISO-8859-2: the invalid bytes become U+FFFD instead of breaking the completion
+    bib = "@book{Cech_1959, author = {Čech, Eduard}, title = {Bodové množiny}, year = 1959}\n".encode("iso-8859-2")
+    workspace = make_workspace(tmp_path, {"Woofile": "builder:\n  bibtex: refs.bib\n", "refs.bib": bib,
+                                          "a.woo": CITING_DOCUMENT})
+    results = complete(workspace, f"file://{tmp_path / 'a.woo'}", 4, 10)
+    assert [result.label for result in results] == ["Cech_1959"]
+    assert results[0].detail == "\ufffdech (1959): Bodov\ufffd mno\ufffdiny"
+
+
+def test_no_warning_for_unreadable_bibliography(analyzer, tmp_path):
+    # a .bib in UTF-16 (or a folder by mistake) yields no entries: treated as no bibliography, not as an empty one
+    document = ".Chapter A\n  label: a\n\n\nSee .cite:Anything_2000.\n"
+    utf16 = "@book{Anything_2000, title = {A}}\n".encode("utf-16")
+    workspace = make_workspace(tmp_path, {"utf16/Woofile": "builder:\n  bibtex: refs.bib\n", "utf16/refs.bib": utf16,
+                                          "utf16/a.woo": document,
+                                          "folder/Woofile": "builder:\n  bibtex: refs\n", "folder/refs/x.txt": "",
+                                          "folder/a.woo": document})
+    for project in ("utf16", "folder"):
+        diagnostics = workspace.diagnose(TextDocumentIdentifier(f"file://{tmp_path / project / 'a.woo'}"))
+        assert [d.message for d in diagnostics] == [], project

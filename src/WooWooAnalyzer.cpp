@@ -324,6 +324,10 @@ WooWooProject *WooWooAnalyzer::getProject(const std::optional<fs::path> &path) {
     return nullptr;
 }
 
+void WooWooAnalyzer::setCompletionTextEdits(bool applied) {
+    completer->textEditsApplied = applied;
+}
+
 void WooWooAnalyzer::setTokenTypes(std::vector<std::string> tokenTypes) {
     return highlighter->setTokenTypes(std::move(tokenTypes));
 }

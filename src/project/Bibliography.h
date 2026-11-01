@@ -30,7 +30,8 @@ struct BibliographyEntry {
 // The entries of a BibTeX file. @string macros and crossref are not resolved.
 class Bibliography {
 public:
-    // nullptr when the file cannot be read; @comment, @string, @preamble and entries without a key are left out
+    // nullptr when the file cannot be read or has no entries; @comment, @string, @preamble and entries without a
+    // key are left out
     static std::unique_ptr<Bibliography> load(const fs::path &bibFile);
 
     [[nodiscard]] const BibliographyEntry *find(const std::string &key) const;

@@ -9,6 +9,35 @@
 
 namespace {
 
+// Every byte that is not part of valid UTF-8 becomes U+FFFD (as in the editor's view of the file), so the
+// entries can be passed to Python and their positions match the editor's.
+std::string withValidUtf8(const std::string &text) {
+    std::string result;
+    result.reserve(text.size());
+    for (size_t i = 0; i < text.size();) {
+        auto byte = [&](size_t at) { return at < text.size() ? static_cast<unsigned char>(text[at]) : 0u; };
+        unsigned char lead = byte(i);
+        size_t length = lead < 0x80 ? 1 : lead >= 0xC2 && lead <= 0xDF ? 2 : lead >= 0xE0 && lead <= 0xEF ? 3
+                                                                    : lead >= 0xF0 && lead <= 0xF4 ? 4 : 0;
+        // the second byte is limited for E0 (overlong), ED (surrogates), F0 (overlong) and F4 (above U+10FFFF)
+        unsigned char low = lead == 0xE0 ? 0xA0 : lead == 0xF0 ? 0x90 : 0x80;
+        unsigned char high = lead == 0xED ? 0x9F : lead == 0xF4 ? 0x8F : 0xBF;
+        bool valid = length > 0;
+        for (size_t k = 1; valid && k < length; ++k) {
+            unsigned char next = byte(i + k);
+            valid = k == 1 ? next >= low && next <= high : next >= 0x80 && next <= 0xBF;
+        }
+        if (valid) {
+            result.append(text, i, length);
+            i += length;
+        } else {
+            result += "\xEF\xBF\xBD";
+            i += 1;
+        }
+    }
+    return result;
+}
+
 std::string nodeText(TSNode node, const std::string &source) {
     return source.substr(ts_node_start_byte(node), ts_node_end_byte(node) - ts_node_start_byte(node));
 }
@@ -99,7 +128,13 @@ std::unique_ptr<Bibliography> Bibliography::load(const fs::path &bibFile) {
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
-    return std::unique_ptr<Bibliography>(new Bibliography(bibFile, buffer.str()));
+    std::unique_ptr<Bibliography> bibliography(new Bibliography(bibFile, withValidUtf8(buffer.str())));
+    if (bibliography->entries().empty()) {
+        // a folder, a file in another encoding (UTF-16), or no entries at all: nothing to check citations against
+        std::cerr << "No bibliography entries in " << bibFile.string() << std::endl;
+        return nullptr;
+    }
+    return bibliography;
 }
 
 Bibliography::Bibliography(fs::path filePath, const std::string &source) : filePath(std::move(filePath)) {

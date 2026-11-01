@@ -11,6 +11,8 @@ def analyzer():
     dialect_path = Path(__file__).parent.parent.resolve() / "tests" / "files" / "fit_math.yaml"
 
     analyzer.set_dialect(str(dialect_path))
+    # like the language server: it applies the text edits of completion items
+    analyzer.set_completion_text_edits(True)
     test_project_path = Path(__file__).parent.resolve() / "files" / "test_project"
     test_project_uri = f"file:///{test_project_path}".replace(os.sep, '/')
     analyzer.load_workspace(test_project_uri)
