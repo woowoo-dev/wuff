@@ -57,3 +57,7 @@ def upstream_uri():
 @pytest.fixture(scope="session")
 def empty_uri():
     return generate_woo_file_uri('empty.woo')
+
+@pytest.fixture(scope="session")
+def eqref_uri():
+    return generate_woo_file_uri('eqref.woo')

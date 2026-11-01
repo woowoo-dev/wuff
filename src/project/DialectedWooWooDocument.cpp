@@ -51,6 +51,8 @@ void DialectedWooWooDocument::index() {
     referencableNodes.clear();
     for (const std::string &typeName: DialectManager::getInstance()->getReferencingTypeNames()) {
         for (const Reference &ref: DialectManager::getInstance()->getPossibleReferencesByTypeName(typeName)) {
+            // only meta-field targets live in documents
+            if (ref.target != ReferenceTarget::MetaField) continue;
 
             // create if not exist
             referencableNodes[ref];

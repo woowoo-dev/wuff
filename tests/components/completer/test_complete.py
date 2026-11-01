@@ -23,3 +23,9 @@ def test_complete_nothing(analyzer, file1_uri):
     cp = create_completion_params(file1_uri, 0, 0)
     results = analyzer.complete(cp)
     assert len(results) == 0
+
+def test_complete_eqref_align_label(analyzer, eqref_uri):
+    # .eqref: targets the labels of all numbered equation environments: equation, align, gather
+    cp = create_completion_params(eqref_uri, 22, 11)
+    labels = {result.label for result in analyzer.complete(cp)}
+    assert {"eq-two", "al-one", "ga-one"} <= labels, f"Got {labels}"

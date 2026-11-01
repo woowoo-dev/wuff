@@ -1,0 +1,23 @@
+.Chapter Equation references
+  label: c-eqref
+
+
+.equation:
+  label: eq-two
+
+  x = 2
+
+
+.align:
+  label: al-one
+
+  a &= b
+
+
+.gather:
+  label: ga-one
+
+  c = d
+
+
+See .eqref:al-one and "it"#ga-one.
