@@ -82,6 +82,7 @@ PYBIND11_MODULE(wuff, m) {
     py::enum_<CompletionItemKind>(m, "CompletionItemKind")
             .value("Text", CompletionItemKind::Text)
             .value("Snippet", CompletionItemKind::Snippet)
+            .value("Reference", CompletionItemKind::Reference)
              // Note: LSP lists many other possible values, which are not used in this project right now.
             .export_values();
 
@@ -90,26 +91,32 @@ PYBIND11_MODULE(wuff, m) {
             .value("Snippet", InsertTextFormat::Snippet)
             .export_values();
 
+    py::class_<TextEdit>(m, "TextEdit")
+            .def(py::init<Range, std::string>())
+            .def_readwrite("range", &TextEdit::range)
+            .def_readwrite("new_text", &TextEdit::newText);
+
     py::class_<CompletionItem>(m, "CompletionItem")
             .def(py::init<std::string, std::optional<CompletionItemKind>,
-                         std::optional<InsertTextFormat>, std::optional<std::string>>(),
+                         std::optional<InsertTextFormat>, std::optional<std::string>,
+                         std::optional<std::string>, std::optional<std::string>, std::optional<TextEdit>>(),
                  py::arg("label"), py::arg("kind") = std::nullopt,
-                 py::arg("insertTextFormat") = std::nullopt, py::arg("insertText") = std::nullopt)
+                 py::arg("insertTextFormat") = std::nullopt, py::arg("insertText") = std::nullopt,
+                 py::arg("detail") = std::nullopt, py::arg("documentation") = std::nullopt,
+                 py::arg("text_edit") = std::nullopt)
             .def_readwrite("label", &CompletionItem::label)
             .def_readwrite("kind", &CompletionItem::kind)
             .def_readwrite("insertTextFormat", &CompletionItem::insertTextFormat)
-            .def_readwrite("insertText", &CompletionItem::insertText);
+            .def_readwrite("insertText", &CompletionItem::insertText)
+            .def_readwrite("detail", &CompletionItem::detail)
+            .def_readwrite("documentation", &CompletionItem::documentation)
+            .def_readwrite("text_edit", &CompletionItem::textEdit);
 
     py::class_<ReferenceParams, TextDocumentPositionParams>(m, "ReferenceParams")
             .def(py::init<const TextDocumentIdentifier&, const Position&, bool>());
     
     py::class_<RenameParams, TextDocumentPositionParams>(m, "RenameParams")
             .def(py::init<const TextDocumentIdentifier&, const Position&, std::string>());
-
-    py::class_<TextEdit>(m, "TextEdit")
-            .def(py::init<Range, std::string>())
-            .def_readwrite("range", &TextEdit::range)
-            .def_readwrite("new_text", &TextEdit::newText);
 
     py::class_<WorkspaceEdit>(m, "WorkspaceEdit")
             .def(py::init<>())

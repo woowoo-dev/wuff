@@ -28,7 +28,7 @@ public:
 private:
     std::vector<std::unordered_map<uint32_t, uint32_t>> utf8ToUtf16Mappings;
     std::vector<std::unordered_map<uint32_t, uint32_t>> utf16ToUtf8Mappings;
-    std::unordered_map<uint32_t, uint32_t> lineUtf8ToUtf16Mapping(const std::string& line);
+    void addLineMappings(const std::string& line);
     static int utf8CharLen(unsigned char firstByte);
     static uint32_t utf8ToCodePoint(const std::string& utf8, uint32_t & offset, int length);
 };

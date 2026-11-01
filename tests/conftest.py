@@ -61,3 +61,8 @@ def empty_uri():
 @pytest.fixture(scope="session")
 def eqref_uri():
     return generate_woo_file_uri('eqref.woo')
+
+
+@pytest.fixture(scope="session")
+def usages_uri():
+    return generate_woo_file_uri('usages.woo')

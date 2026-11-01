@@ -101,17 +101,34 @@ enum class InsertTextFormat {
     Snippet = 2
 };
 
+struct TextEdit {
+    Range range;
+
+    std::string newText;
+
+    TextEdit(Range range, std::string newText)
+            : range(std::move(range)), newText(std::move(newText)) {}
+};
+
 struct CompletionItem {
     std::string label;
     std::optional<CompletionItemKind> kind;
     std::optional<InsertTextFormat> insertTextFormat;
     std::optional<std::string> insertText;
+    std::optional<std::string> detail;
+    // Markdown
+    std::optional<std::string> documentation;
+    std::optional<TextEdit> textEdit;
 
     explicit CompletionItem(std::string label, std::optional<CompletionItemKind> kind = std::nullopt,
                             std::optional<InsertTextFormat> insertTextFormat = std::nullopt,
-                            std::optional<std::string> insertText = std::nullopt)
+                            std::optional<std::string> insertText = std::nullopt,
+                            std::optional<std::string> detail = std::nullopt,
+                            std::optional<std::string> documentation = std::nullopt,
+                            std::optional<TextEdit> textEdit = std::nullopt)
             : label(std::move(label)), kind(kind), insertTextFormat(insertTextFormat),
-              insertText(std::move(insertText)) {}
+              insertText(std::move(insertText)), detail(std::move(detail)),
+              documentation(std::move(documentation)), textEdit(std::move(textEdit)) {}
 };
 
 
@@ -130,15 +147,6 @@ struct RenameParams : public TextDocumentPositionParams {
             : TextDocumentPositionParams(textDocument, position), newName(std::move(newName)) {}
 };
 
-
-struct TextEdit {
-    Range range;
-
-    std::string newText;
-
-    TextEdit(Range range, std::string newText)
-            : range(std::move(range)), newText(std::move(newText)) {}
-};
 
 struct WorkspaceEdit {
     // The key is the file URI

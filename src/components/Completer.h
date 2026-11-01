@@ -19,9 +19,12 @@ public:
     
 private:
     void completeInclude(std::vector<CompletionItem> & completionItems, const CompletionParams & params);
-    void completeInnerEnvs(std::vector<CompletionItem> & completionItems, const CompletionParams & params);
+    void completeInnerEnvs(std::vector<CompletionItem> & completionItems, DialectedWooWooDocument * document,
+                           uint32_t line, uint32_t character);
     void completeShorthand(std::vector<CompletionItem> & completionItems, const CompletionParams & params);
     void searchProjectForReferencables(std::vector<CompletionItem> & completionItems, WooWooDocument * doc, std::string & referencingValue);
+    void completeReferenceUsage(std::vector<CompletionItem> & completionItems, DialectedWooWooDocument * document,
+                                const ReferenceUsage & usage);
 
     [[nodiscard]] const std::unordered_map<std::string, std::pair<TSLanguage *, std::string>>& getQueryStringByName() const override;
     
