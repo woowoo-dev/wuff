@@ -14,7 +14,7 @@ jobs:
     name: Build SDist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
@@ -24,7 +24,7 @@ jobs:
       - name: Check metadata
         run: pipx run twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -44,20 +44,20 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macos-15-intel, macos-15 ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
-      # v4 builds CPython 3.14 wheels by default (v2.21 stopped at 3.13). It also switched
-      # the default Linux image from manylinux2014 to manylinux_2_28 (glibc 2.28).
-      - uses: pypa/cibuildwheel@v4.3.4
+      # v4 builds CPython 3.14 and 3.15 wheels by default (v2.21 stopped at 3.13). It also
+      # switched the default Linux image from manylinux2014 to manylinux_2_28 (glibc 2.28).
+      - uses: pypa/cibuildwheel@v4.3.5
 
       - name: Verify clean directory
         run: git diff --exit-code
         shell: bash
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: wheelhouse/*.whl
@@ -73,11 +73,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
           path: dist
