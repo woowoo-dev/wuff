@@ -1,35 +1,34 @@
 # wuff
 
-`wuff` is an analysis engine (analyzer) designed specifically for WooWoo workspaces. It can be integrated within a language server to provide detailed analysis and support for WooWoo-specific syntax and semantics.
+`wuff` is the analysis engine behind the [WooWoo Language Server](https://github.com/woowoo-dev/woowoo-language-server).
+It is written in C++, parses WooWoo with tree-sitter and is distributed as a Python package (pybind11).
 
-## Overview
+## Installation
 
-The `wuff` analyzer is built using C++ and is configured to be built with CMake.
+```bash
+pip install wuff
+```
 
-## Python Package
+[PyPI](https://pypi.org/project/wuff/#files) has wheels for CPython 3.10 to 3.15 on Linux, macOS and Windows.
+Elsewhere pip builds `wuff` from source, which needs a C++20 compiler.
 
-The `wuff` analyzer is available as a Python package. You can download and install it from PyPI by visiting [this link](https://pypi.org/project/wuff/#files).
+## Development
 
-### Local Installation
+```bash
+git clone https://github.com/woowoo-dev/wuff.git
+cd wuff
+pip install ".[test]"
+pytest
+```
 
-To install `wuff` locally for development or testing purposes, follow these steps:
+CMake downloads the C++ dependencies (tree-sitter, yaml-cpp, pybind11) during the build, so it needs network access.
 
-1. **Clone the repository:**  
-   First, obtain a copy of the source code by cloning the Git repository.
-   ```bash
-   git clone https://github.com/Magmi183/wuff.git
-   cd wuff
-   ```
+## Releasing
 
-2. **Install wuff**
-
-   To install the package, run:
-
-   ```bash
-   pip install .
-   ```
-   This command installs `wuff` from the current directory using the setup configurations defined in `setup.py`.
+1. Bump `version` in `setup.py` and add a section to `CHANGELOG.md`.
+2. Create a GitHub release with the tag `vX.Y.Z`.
+3. The *Wheels* workflow builds the wheels and the sdist. After an approval in the `pypi` environment it uploads them to PyPI (Trusted Publishing, no token).
 
 ## Changelog
 
-See [CHANGELOG.md](https://github.com/Magmi183/wuff/blob/master/CHANGELOG.md).
+See [CHANGELOG.md](https://github.com/woowoo-dev/wuff/blob/master/CHANGELOG.md).

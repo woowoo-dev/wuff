@@ -7,7 +7,17 @@ All notable changes to `wuff` are documented here. The format follows
 The changelog starts with version 1.3.0; earlier releases are documented in the commit
 history only.
 
-## [1.3.0] - 2026-10-24
+## [Unreleased]
+
+### Changed
+
+- The PyPI page links to the GitHub repository, the changelog and the issue tracker, and
+  lists Python 3.15, which the 1.3.0 wheels already cover.
+- README: links point to `woowoo-dev`; installation, development and release steps.
+- CI: current versions of the GitHub Actions (the old ones ran on the deprecated Node.js 20)
+  and cibuildwheel 4.3.5. Dependabot keeps the actions up to date.
+
+## [1.3.0] - 2026-10-31
 
 ### Added
 
